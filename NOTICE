@@ -1,0 +1,3 @@
+Multica Team adapts the file format and base memory workflow from AgentMemoryRepo/agentmemoryrepo (https://github.com/AgentMemoryRepo/agentmemoryrepo), originally developed by Cognition and distributed under the MIT License. See third_party/agent-memory-repo-LICENSE.
+
+Devin Memory and Dreaming public documentation informed the design. No proprietary Devin source code is included.

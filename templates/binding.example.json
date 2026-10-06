@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "multica": {
+    "server_url": "https://api.multica.ai",
+    "workspace_id": "00000000-0000-4000-8000-000000000001"
+  },
+  "memory": {
+    "local_path": "/absolute/persistent/workspace/memory",
+    "remote_url": null,
+    "visibility": "local",
+    "push_authorized": false
+  },
+  "maintainer_agent_id": "00000000-0000-4000-8000-000000000002",
+  "members": {
+    "00000000-0000-4000-8000-000000000002": "maintainer",
+    "00000000-0000-4000-8000-000000000003": "researcher"
+  },
+  "projects": {
+    "00000000-0000-4000-8000-000000000004": "example-project"
+  },
+  "feedback": {
+    "repository": "junjiezhou1122/multica-team",
+    "mode": "preview",
+    "issue_grant": null,
+    "pr_authorized": false
+  },
+  "capture": {
+    "mode": "explicit"
+  },
+  "dreaming": {
+    "trigger": "manual"
+  }
+}
