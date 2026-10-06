@@ -19,4 +19,4 @@ Propose skill or company rule changes separately. These were not applied by this
 
 ## Result
 
-Record local commit, intended files, structural checks, and remote publication/readback if authorized. Public reports contain only publishable evidence.
+Before committing, record intended files, structural checks, and the reviewed starting commit. Record the resulting commit hash and any authorized publication readback in the post-commit response or an operational receipt outside this report; a report cannot contain its own final commit hash. Public reports contain only publishable evidence.

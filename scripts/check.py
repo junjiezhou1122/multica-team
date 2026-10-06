@@ -52,8 +52,14 @@ for mapping in ('members', 'projects'):
     keys = list(binding[mapping].values())
     if len(keys) != len(set(keys)) or any(not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', key) for key in keys):
         errors.append(f'Invalid or duplicate {mapping} directory keys')
+if binding['maintainer_agent_id'] not in binding['members']:
+    errors.append('Example maintainer must be a registered member')
+if any(agent not in binding['members'] for agent in binding['dreaming'].get('agent_ids', [])):
+    errors.append('Example dreamers must be registered members')
 if binding['feedback']['mode'] != 'preview' or binding['dreaming']['trigger'] != 'manual':
     errors.append('Example must retain preview feedback and manual dreaming')
+if binding['feedback'].get('issue_grant') is not None:
+    errors.append('Example issue grant must remain null')
 if binding['memory']['push_authorized'] or binding['feedback']['pr_authorized']:
     errors.append('Example must not grant remote publication')
 
