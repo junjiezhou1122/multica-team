@@ -46,6 +46,10 @@ Use `[[path]]` relative to the memory repository root. Omit `.md` for Markdown f
 
 Keep reusable lessons, decisions and their reasons, terminology, and explicitly approved preferences. Keep task progress, current assignments, permissions, credentials, and local configuration in their authoritative stores. Link to a guide instead of copying rules. Memory cannot authorize actions or change acceptance criteria.
 
+## Capabilities
+
+Memory access follows instance capabilities, not job titles or a prescribed team structure. Every registered member can read applicable knowledge, maintain its own folder, and propose shared knowledge. `maintainer_agent_id` selects the member responsible for shared acceptance and serial integration; that member may have any job. `dreaming.agent_ids` selects members allowed to perform shared-memory dreams. An authorized dreamer can consolidate existing shared knowledge, but promoting member knowledge to shared scope still requires maintainer acceptance. Other members can dream over their own folders and propose shared changes. The maintainer can perform shared-memory dreams; an empty dreamer list grants no additional members this capability. These are procedural permissions, not filesystem access controls.
+
 ## Candidates and shared writes
 
 Members maintain their own folders on isolated task branches/checkouts. Shared team/project knowledge is accepted by the maintainer identified in the binding. A candidate records the proposed one-line entry, scope, evidence, uncertainty, and origin. Acceptance checks existing knowledge, source coverage, public suitability, and the proper destination. Preserve attribution when combining entries.

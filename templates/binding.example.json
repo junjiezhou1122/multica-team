@@ -28,6 +28,7 @@
     "mode": "explicit"
   },
   "dreaming": {
-    "trigger": "manual"
+    "trigger": "manual",
+    "agent_ids": []
   }
 }

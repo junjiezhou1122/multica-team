@@ -6,6 +6,8 @@ This guide connects a skill-based instance to an existing workspace. It does not
 
 Keep a binding outside the memory Git repository, in the workspace's persistent operational directory. Start from `templates/binding.example.json`. Replace example IDs and paths. `memory.visibility` is `local`, `private`, or `public`; `push_authorized` is an independent grant. `feedback.mode` is `preview` or `auto_issue`; `pr_authorized` is separate. `capture.mode` defaults to `explicit`; automated capture needs an explicit grant. `dreaming.trigger` is `manual` in version 0.1.0. No scheduler is provided.
 
+No fixed coordinator, engineer, reviewer, or retrospective roles are required. All registered members receive read, own-memory-write, and candidate capabilities. Select any registered member as shared maintainer, and list authorized shared dreamers in `dreaming.agent_ids`. Job titles do not imply permission. Console Mops reads the same instance via its binding; owner-authorized console maintenance records its authority separately rather than impersonating a member.
+
 The instance identity is server URL plus workspace UUID. Members and projects map IDs to directory keys. A directory key is a stable lowercase slug; no path separators or `..`. Credentials stay in the platform's credential stores. This mapping is routing, not authentication.
 
 ## Attach to workers
