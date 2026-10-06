@@ -58,6 +58,8 @@ if any(agent not in binding['members'] for agent in binding['dreaming'].get('age
     errors.append('Example dreamers must be registered members')
 if binding['feedback']['mode'] != 'preview' or binding['dreaming']['trigger'] != 'manual':
     errors.append('Example must retain preview feedback and manual dreaming')
+if binding['feedback'].get('issue_grant') is not None:
+    errors.append('Example issue grant must remain null')
 if binding['memory']['push_authorized'] or binding['feedback']['pr_authorized']:
     errors.append('Example must not grant remote publication')
 
