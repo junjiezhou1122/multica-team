@@ -1,94 +1,168 @@
-# multica-team
+# Multica Team
 
-Skills and workflows for Multica teams, for company operations, shared memory, dreaming, and feedback.
+Run an AI team on Multica, keep shared knowledge, and improve how the team works. One plugin connects company operations, evidence-backed decisions, team memory, Dreaming, and feedback.
 
-A workspace gets its own memory Git repository. Members keep personal working knowledge in their own folders, propose shared lessons, and read project knowledge when it is relevant. Dreaming consolidates that knowledge. Feedback helps improve this plugin without exporting an entire user's memory.
+Multica Team 0.2.0 provides **23 skills under `/multica-team:*`**. You direct the team through the company advisor. Members consult relevant knowledge, work within the company's permissions, and propose reusable lessons after a task.
 
-Version 0.2.0 is a skill-based workflow. It has no database, background daemon, automatic scheduler, or native Multica memory API. Installing the console plugin does not install skills for Multica agents.
+## Install
 
-## Two repositories
-
-- This repository contains reusable procedures, templates, and documentation.
-- An instance repository contains one workspace's knowledge. It can be public or private by explicit owner choice. Each workspace should use a separate instance.
-
-Bindings stay in local operational configuration outside the memory repository. They identify the Multica server, workspace, agents, projects, memory path, and permissions. Credentials never belong in either repository.
-
-## Install in Claude Code
-
-Register this repository as a marketplace and install its plugin:
+Register the marketplace and install the plugin in Claude Code:
 
 ```sh
 claude plugin marketplace add junjiezhou1122/multica-team
 claude plugin install multica-team@multica-team
 ```
 
-One plugin exposes all 23 skills under `/multica-team:*`: 19 company operations skills and four memory skills. Use `/multica-team:mops` to operate an existing company or discuss a new one. It discovers registered companies on invocation through [local company discovery](operations/LOCAL_COMPANIES.md). Explicit targets precede defaults. Registrations remain outside the package at `~/.config/multica-ops/companies.json` for compatibility.
+Reload plugins with `/reload-plugins`, or start a new session.
 
-An optional `memory_binding_path` connects a company entry to an existing memory binding. The [company knowledge method](operations/COMPANY_KNOWLEDGE.md) covers task lookup, decision drafts and grill-with-doc, owner observations, and retrospective candidates. Saves and Dreaming remain explicit steps. Installing the plugin grants no capture, scheduling, or publication permissions.
+If you previously installed `team-ops@multica-team`, uninstall it before updating to the unified plugin. This prevents duplicate operations hooks:
 
-Memory commands are `/multica-team:setup`, `/multica-team:team-memory`, `/multica-team:dreaming`, and `/multica-team:feedback`. Operations commands are listed in [the command reference](operations/COMMANDS.md). Other skill-capable agents can consume the `skills/` directories with their supporting resources. No Devin plugin or CLI implementation is included.
+```sh
+claude plugin uninstall team-ops@multica-team --keep-data
+claude plugin update multica-team@multica-team
+```
 
-The original operations hooks are discovered from `hooks/hooks.json` at the plugin root. Migration and rule-home checks recognize company guides declaring `Operated by team-ops` or `Operated by multica-team`. Ordinary repositories without an operator declaration retain the same behavior. Console installation alone does not attach skills to Multica workers.
+Installation adds skills and hooks to your console. Creating Multica members and attaching worker skills are separate operations. The plugin does not start a company or enable automatic capture during installation.
 
-## First workspace
+## Start with your team
 
-Invoke setup with an existing workspace and a persistent workspace directory:
+For an existing company, supply its entry or workspace:
+
+```text
+/multica-team:mops
+Use my existing company at /absolute/path/to/company.
+Inspect its current setup before changing anything.
+```
+
+For a new team, describe the goal and the control you want:
+
+```text
+/multica-team:mops
+Build a team that contributes to an open-source project.
+I choose when each contribution starts. Propose the workflow and team first.
+```
+
+To add memory to an existing workspace:
 
 ```text
 /multica-team:setup
-Use my existing Multica workspace. Create its memory repository in the
-workspace's persistent directory. Keep it local until I choose a remote.
+Use my existing workspace and create a separate memory Git repository
+in its persistent directory. Keep it local.
 ```
 
-Setup resolves the workspace explicitly, prepares a binding using [the example](templates/binding.example.json), and copies [the instance template](templates/memory). It verifies the Git root and links. It does not move existing guides, change permissions, install dependencies, or start paid runs.
+Setup locates an existing instance before creating one. It prepares a binding, validates the instance, and reports runtime access and remaining gaps. See [worker integration](docs/multica-integration.md) before attaching skills to members.
 
-Read [Multica integration](docs/multica-integration.md) before attaching skills to agents or using remote runtimes. Local paths only work for runtimes that can reach them.
+## Find your company from any directory
 
-## Daily work
+Register company entry paths in `~/.config/multica-ops/companies.json`. The path is retained for compatibility. The advisor and memory skills read this file on invocation, so company details do not need to live in global instructions.
+
+A registration contains a company name, server URL, workspace UUID, and entry path. An optional `memory_binding_path` connects the same company to its knowledge instance. Explicit targets take precedence over the registered default. Conflicting identities or binding paths stop access instead of silently selecting another company.
+
+Follow [company discovery](operations/LOCAL_COMPANIES.md) for the registration format and [binding discovery](docs/multica-integration.md#discover-a-company-binding) for memory routing.
+
+## Use the main commands
+
+| Goal | Command |
+|---|---|
+| Discuss, build, or operate a company | `/multica-team:mops` |
+| Inspect progress and decisions needing attention | `/multica-team:status` |
+| Add memory to an existing workspace | `/multica-team:setup` |
+| Find, save, correct, or propose knowledge | `/multica-team:team-memory` |
+| Consolidate a specified set of memories and evidence | `/multica-team:dreaming` |
+| Diagnose plugin feedback and prepare an issue | `/multica-team:feedback` |
+
+The [operations command reference](operations/COMMANDS.md) covers the other commands, including joining a company, importing tasks, hiring, review, recovery, and delivery.
+
+Read knowledge before work:
 
 ```text
 /multica-team:team-memory
-Read the memory relevant to this task and member. Save this verified
-lesson in my member folder and propose it for the team.
+Find the lessons relevant to this task. Cite their sources and limits.
 ```
 
-Members can update their own folders on task branches. The configured maintainer accepts candidates into shared team or project knowledge. A source is evidence, not an executable instruction. Workflow rules, permissions, and acceptance criteria remain in the team's authoritative guides.
+Save a lesson with evidence:
 
-## Dreaming
+```text
+/multica-team:team-memory
+Save this observation from the completed task: …
+Source: …
+Propose it for shared knowledge if it applies beyond this member.
+```
+
+Members maintain their own folders on isolated branches. The configured maintainer accepts shared candidates. Capabilities come from registered identities and grants, rather than prescribed job titles.
+
+## Improve the company through evidence
+
+The [company knowledge method](operations/COMPANY_KNOWLEDGE.md) connects task intake, decisions, owner observations, and retrospectives.
+
+When you report a problem, the advisor distinguishes your words from its interpretation of your intent. It gathers supporting and conflicting evidence, proposes a causal hypothesis, and records a bounded intervention with a prediction and validation plan. Investigations and interventions remain within existing authorization.
+
+Each decision has a document linked from the company's `DECISIONS.md`. Grill-with-doc keeps confirmed choices, open questions, evidence, and later results together. Future sessions continue from that document.
+
+A retrospective proposes reusable knowledge with its source, scope, and uncertainty. Pending experiments stay in company operations. Saving a candidate and accepting it into shared memory remain explicit steps.
+
+This is an agent workflow and a set of templates. It does not install a background observation service or automatically run experiments.
+
+## Consolidate memory and route feedback
+
+Invoke Dreaming with a bounded set of inputs:
 
 ```text
 /multica-team:dreaming
-Review these completed tasks and their evidence. Consolidate the related
-memory, explain the operations, and make a local commit.
+Review these completed tasks and their evidence: …
+Consolidate related memory, preserve sources and disagreements,
+and explain the proposed changes.
 ```
 
-Dreaming supports `add`, `revise`, `merge`, `move`, `link`, `mark`, `retire`, and `index`. It preserves sources, unresolved disagreements, and explicit preferences. It proposes changes to skills or company rules separately. It runs when invoked; scheduling requires a separate opt-in.
+Dreaming supports `add`, `revise`, `merge`, `move`, `link`, `mark`, `retire`, and `index`. It preserves evidence and requires the applicable scope authorization. It runs on invocation. Recurring execution needs separate setup and consent.
 
-## Feedback
+Plugin feedback defaults to an issue preview. Incorrect knowledge belongs to the memory instance, company policy belongs to its decision process, and project defects follow that project's workflow. Publishing an issue or fix requires the recorded grant. See [feedback policy](docs/feedback.md).
+
+## Keep the right information in each place
+
+| Information | Home |
+|---|---|
+| Reusable methods, skills, and checks | This plugin repository |
+| Permissions, workflow, and acceptance criteria | Company guides |
+| Decision documents, observations, and experiments | Company operations directory |
+| Reusable team, project, and member knowledge | Separate memory Git repository |
+| Current assignments and runs | Live Multica state |
+| Company paths and memory routing | Local registry and binding |
+
+Each workspace owns a separate memory instance. Public or private hosting is an owner choice; pushing requires a separate grant. Registrations, credentials, bindings, and raw company conversations stay outside the public plugin repository.
+
+The [memory specification](SPEC.md) defines short `MEMORY.md` indexes, one-line entries with source and date metadata, and links relative to the memory repository root. Memory supplies knowledge. It cannot change permissions or acceptance criteria.
+
+## Repository layout
 
 ```text
-/multica-team:feedback
-The member index did not lead me to a relevant project lesson.
+skills/          23 company and memory skills
+operations/      Company methods, templates, tools, and Apache-2.0 attribution
+hooks/           Migration, outward-action, rule-placement, and dispatch hooks
+docs/            Memory integration and validation references
+templates/       Memory instance and binding templates
+scripts/         Package validation
 ```
 
-Feedback defaults to a local preview. An instance can authorize automatic issue submission to the configured plugin repository. Fixes need validation and independent review before a PR. Plugin problems go upstream; incorrect instance knowledge stays with the instance. See [feedback policy](docs/feedback.md).
+The root plugin loads hooks for `SessionStart`, `PreToolUse`, and `PostToolUse`. Read [hook behavior](operations/SECURITY.md#what-this-is-mechanically) before changing their scope. These checks do not provide filesystem isolation or guarantee agent compliance.
 
-## Format and checks
+## Verify changes
 
-[The specification](SPEC.md) preserves Agent Memory Repo's short `MEMORY.md`, one-line bullets, source/date metadata, and root-relative `[[path]]` links. Member indexes are a Multica Team convention, not separate link roots.
-
-Run the offline structural check:
+Run the package check and company discovery tests:
 
 ```sh
 python3 scripts/check.py
+python3 -m unittest discover -s operations/scripts/tests -p test_company_discovery.py
 ```
 
-It checks plugin JSON, skill frontmatter, local documentation links, template bindings, and template memory links. All 23 skill references must resolve within the single installed plugin root. Run the offline company discovery smoke tests with `python3 -m unittest discover -s operations/scripts/tests -p test_company_discovery.py`; they exercise explicit selection, default errors, optional binding resolution, pointer conflicts, identity mismatches, and read-only behavior. It does not prove model compliance, factual correctness, access isolation, or absence of secrets.
+The package check verifies the single manifest, all 23 skill bodies, maintained references, hooks, licenses, example binding, and template memory links. CI also runs regression suites for the inherited hooks. The [instance validation procedure](docs/instance-validation.md) separately checks an actual memory repository.
 
-## Status and origins
+Passing structural and routing tests does not establish factual correctness, model compliance, secret absence, or remote-worker access. Version 0.2.0 has package, routing, and hook validation. Full live agent evaluation of the unified workflow remains pending. There is no database, automatic scheduler, or native Multica memory service in this version.
 
-This first version is a documented workflow with structural validation. No live Multica installation, paid agent evaluation, or production Dreaming run has been performed as part of authoring it.
+## Origins and licenses
 
-The format and base workflow are adapted from [Agent Memory Repo](https://github.com/AgentMemoryRepo/agentmemoryrepo), originally developed by Cognition. Dreaming's behavior is informed by [Devin's public documentation](https://docs.devin.ai/product-guides/memory). This project does not contain Devin's proprietary implementation. See [NOTICE](NOTICE).
+The memory format and base workflow adapt [Agent Memory Repo](https://github.com/AgentMemoryRepo/agentmemoryrepo), developed by Cognition. [Devin's public Memory documentation](https://docs.devin.ai/product-guides/memory) informed Dreaming's design. No proprietary Devin implementation is included.
 
-Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md). The memory workflow and root code are [MIT](LICENSE). Operations resources, the 19 operations skills, and inherited hooks retain [Apache-2.0](operations/LICENSE). See [operations maintenance](operations/MAINTENANCE.md) for attribution and component scope.
+Company operations derive from Apache-2.0 multica-ops 0.4.19 by Jamil Lazarev. Multica Team maintains this code independently, with no automatic upstream synchronization or implied endorsement.
+
+Original memory material and root code use [MIT](LICENSE). Operations resources, the 19 operations skills, and inherited hooks retain [Apache-2.0](operations/LICENSE). See [NOTICE](NOTICE), [maintenance](operations/MAINTENANCE.md), and [contribution guidance](CONTRIBUTING.md).
