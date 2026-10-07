@@ -2,6 +2,10 @@
 
 This specification is for agents and maintainers of Multica Team memory instances. It retains the Agent Memory Repo format and adds workspace routing and collaboration conventions.
 
+## Package and procedure routing
+
+Version 0.2.0 ships one `multica-team` plugin with 23 skills under `/multica-team:*`. Company operations references live in `operations/`; canonical memory semantics remain in this specification and the four memory skills. Follow [company binding discovery](docs/multica-integration.md#discover-a-company-binding) before memory access. The machine-local registry path remains `~/.config/multica-ops/companies.json`; packaging grants no new authority.
+
 ## Storage and identity
 
 An instance is a separate Git repository in a workspace's persistent directory, outside contribution code and run checkouts. One instance belongs to one `(Multica server URL, workspace UUID)` pair. A local binding outside that repository maps project and agent UUIDs to stable directory keys. Names are display labels, not authority. Resolve the actual workspace before reading or writing; ambiguous routing stops writes.

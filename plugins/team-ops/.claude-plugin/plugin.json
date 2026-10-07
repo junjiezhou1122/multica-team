@@ -1,9 +1,0 @@
-{
-  "name": "team-ops",
-  "description": "Multica Team company advisor and operations workflows.",
-  "version": "0.1.1",
-  "license": "Apache-2.0",
-  "author": {
-    "name": "Multica Team contributors"
-  }
-}

@@ -11,3 +11,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python3 scripts/check.py
+      - run: python3 -m unittest discover -s operations/scripts/tests -p test_company_discovery.py
+      - run: bash operations/scripts/test-migration-hook.sh
+      - run: bash operations/scripts/test-rule-home.sh
+      - run: bash operations/scripts/test-dispatch-nudge.sh
+      - run: env -u MOPS_OUTWARD_GATE bash operations/scripts/test-outward-gate.sh

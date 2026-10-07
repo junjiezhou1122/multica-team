@@ -1,10 +1,10 @@
 # multica-team
 
-Skills and workflows for Multica teams, starting with shared memory, dreaming, and feedback.
+Skills and workflows for Multica teams, for company operations, shared memory, dreaming, and feedback.
 
 A workspace gets its own memory Git repository. Members keep personal working knowledge in their own folders, propose shared lessons, and read project knowledge when it is relevant. Dreaming consolidates that knowledge. Feedback helps improve this plugin without exporting an entire user's memory.
 
-Version 0.1.0 is a skill-based workflow. It has no database, background daemon, automatic scheduler, or native Multica memory API. Installing the console plugin does not install skills for Multica agents.
+Version 0.2.0 is a skill-based workflow. It has no database, background daemon, automatic scheduler, or native Multica memory API. Installing the console plugin does not install skills for Multica agents.
 
 ## Two repositories
 
@@ -22,11 +22,13 @@ claude plugin marketplace add junjiezhou1122/multica-team
 claude plugin install multica-team@multica-team
 ```
 
-This marketplace also includes our independently maintained [Team Ops component](plugins/team-ops/MAINTENANCE.md). Install it with `claude plugin install team-ops@multica-team`. Use `/team-ops:mops` and the other company commands. It discovers registered companies on invocation. Company registrations stay outside the repository. This component is Apache-2.0 and does not automatically follow the original project's updates.
+One plugin exposes all 23 skills under `/multica-team:*`: 19 company operations skills and four memory skills. Use `/multica-team:mops` to operate an existing company or discuss a new one. It discovers registered companies on invocation through [local company discovery](operations/LOCAL_COMPANIES.md). Explicit targets precede defaults. Registrations remain outside the package at `~/.config/multica-ops/companies.json` for compatibility.
 
-For a unified company workflow, register an existing entry and optionally set `memory_binding_path` to its memory binding in local operational configuration. Team Ops consults relevant bound knowledge at task intake. Its [company knowledge method](plugins/team-ops/COMPANY_KNOWLEDGE.md) uses decision drafts for grill-with-doc, records owner observations and validation in company operations, and proposes memory candidates at end-of-cycle retrospectives. Candidate saves and Dreaming remain explicit steps. Neither plugin expands grants or enables capture or schedules through this connection.
+An optional `memory_binding_path` connects a company entry to an existing memory binding. The [company knowledge method](operations/COMPANY_KNOWLEDGE.md) covers task lookup, decision drafts and grill-with-doc, owner observations, and retrospective candidates. Saves and Dreaming remain explicit steps. Installing the plugin grants no capture, scheduling, or publication permissions.
 
-The memory plugin exposes `/multica-team:setup`, `/multica-team:team-memory`, `/multica-team:dreaming`, and `/multica-team:feedback`. Other skill-capable agents can consume the `skills/` directories. No Devin plugin or CLI implementation is included.
+Memory commands are `/multica-team:setup`, `/multica-team:team-memory`, `/multica-team:dreaming`, and `/multica-team:feedback`. Operations commands are listed in [the command reference](operations/COMMANDS.md). Other skill-capable agents can consume the `skills/` directories with their supporting resources. No Devin plugin or CLI implementation is included.
+
+The original operations hooks are discovered from `hooks/hooks.json` at the plugin root. Migration and rule-home checks recognize company guides declaring `Operated by team-ops` or `Operated by multica-team`. Ordinary repositories without an operator declaration retain the same behavior. Console installation alone does not attach skills to Multica workers.
 
 ## First workspace
 
@@ -81,7 +83,7 @@ Run the offline structural check:
 python3 scripts/check.py
 ```
 
-It checks plugin JSON, skill frontmatter, local documentation links, template bindings, and template memory links. Integration skill references must resolve within their own plugin roots. Run the offline company discovery smoke tests with `python3 -m unittest discover -s plugins/team-ops/scripts/tests -p test_company_discovery.py`; they exercise explicit selection, default errors, optional binding resolution, pointer conflicts, identity mismatches, and read-only behavior. It does not prove model compliance, factual correctness, access isolation, or absence of secrets.
+It checks plugin JSON, skill frontmatter, local documentation links, template bindings, and template memory links. All 23 skill references must resolve within the single installed plugin root. Run the offline company discovery smoke tests with `python3 -m unittest discover -s operations/scripts/tests -p test_company_discovery.py`; they exercise explicit selection, default errors, optional binding resolution, pointer conflicts, identity mismatches, and read-only behavior. It does not prove model compliance, factual correctness, access isolation, or absence of secrets.
 
 ## Status and origins
 
@@ -89,4 +91,4 @@ This first version is a documented workflow with structural validation. No live 
 
 The format and base workflow are adapted from [Agent Memory Repo](https://github.com/AgentMemoryRepo/agentmemoryrepo), originally developed by Cognition. Dreaming's behavior is informed by [Devin's public documentation](https://docs.devin.ai/product-guides/memory). This project does not contain Devin's proprietary implementation. See [NOTICE](NOTICE).
 
-Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md). Licensed under [MIT](LICENSE).
+Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md). The memory workflow and root code are [MIT](LICENSE). Operations resources, the 19 operations skills, and inherited hooks retain [Apache-2.0](operations/LICENSE). See [operations maintenance](operations/MAINTENANCE.md) for attribution and component scope.
