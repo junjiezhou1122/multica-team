@@ -163,6 +163,8 @@ Passing structural and routing tests does not establish factual correctness, mod
 
 The memory format and base workflow adapt [Agent Memory Repo](https://github.com/AgentMemoryRepo/agentmemoryrepo), developed by Cognition. [Devin's public Memory documentation](https://docs.devin.ai/product-guides/memory) informed Dreaming's design. No proprietary Devin implementation is included.
 
-Company operations derive from Apache-2.0 multica-ops 0.4.19 by Jamil Lazarev. Multica Team maintains this code independently, with no automatic upstream synchronization or implied endorsement.
+The company operations component is a modified fork of [jamillazarev/multica-ops](https://github.com/jamillazarev/multica-ops) by Jamil Lazarev. We imported version **0.4.19**, at commit [`1cf9184`](https://github.com/jamillazarev/multica-ops/commit/1cf9184c6165703e9d9b9b3c2a1393c141958730), and integrated its 19 operations skills and hooks into this repository.
+
+Our changes unify company operations and team memory under one plugin, add invocation-time company and binding discovery, and connect decision documents, owner observations, and retrospectives to the memory workflow. Multica Team maintains this fork independently. It does not automatically track upstream updates or imply upstream endorsement. Original Apache-2.0 licensing and attribution are retained.
 
 Original memory material and root code use [MIT](LICENSE). Operations resources, the 19 operations skills, and inherited hooks retain [Apache-2.0](operations/LICENSE). See [NOTICE](NOTICE), [maintenance](operations/MAINTENANCE.md), and [contribution guidance](CONTRIBUTING.md).
