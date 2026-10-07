@@ -1,3 +1,7 @@
 Multica Team adapts the file format and base memory workflow from AgentMemoryRepo/agentmemoryrepo (https://github.com/AgentMemoryRepo/agentmemoryrepo), originally developed by Cognition and distributed under the MIT License. See third_party/agent-memory-repo-LICENSE.
 
 Devin Memory and Dreaming public documentation informed the design. No proprietary Devin source code is included.
+
+The operations component derives from jamillazarev/multica-ops, version 0.4.19, by Jamil Lazarev, under Apache-2.0. Its original license and attribution are retained. Multica Team independently maintains this component; no automatic upstream synchronization is configured. See operations/LICENSE and operations/MAINTENANCE.md.
+
+Apache-2.0 component scope includes operations/, the 19 operations skill directories under skills/ (all except setup, team-memory, dreaming, feedback), and inherited hooks/. Root LICENSE covers the MIT memory workflow; consolidation does not change component licensing.

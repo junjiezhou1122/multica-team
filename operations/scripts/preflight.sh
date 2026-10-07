@@ -1,0 +1,882 @@
+#!/usr/bin/env bash
+# Pre-commit preflight for the multica-ops repo.
+# Keeps the skill coherent: versions in sync, CHANGELOG written, README complete,
+# no broken links, commands consistent, and the always-loaded core from bloating.
+# Run: bash scripts/preflight.sh   ·   install: bash scripts/preflight.sh --install
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+# --regen-cli : verify REFERENCE §10 against the installed CLI, re-pin when the surface
+# matches, and list what changed when it doesn't. Explicit action — never silent.
+if [ "${1:-}" = "--regen-cli" ]; then
+  command -v multica >/dev/null || { echo "multica CLI not installed"; exit 1; }
+  local_v=$(multica --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  # The pin is read by a MARKER, not by a phrase. "By name" was `of \`multica\` **vX.Y.Z`, which
+  # is ordinary English: any sentence saying "…narrowed the behaviour of `multica` **v0.4.23**…"
+  # is read as the pin by every reader, and the writer then rewrote THAT and reported "re-pinned
+  # in §10" at exit 0 while §10 sat untouched. Measured 2026-08-15 (pass ten) — the same incident
+  # the comment below was written about, walking through its own repair. `<!-- cli-pin -->` is a
+  # marker prose cannot produce by accident and a reflow cannot separate from its version.
+  pinned=$(grep -oE '\*\*v[0-9]+\.[0-9]+\.[0-9]+\*\* <!-- cli-pin -->' REFERENCE.md \
+           | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+  # EXACTLY ONE marker. Every reader takes the first, so a second one anywhere above §10 — the
+  # natural thing to write the day you invent a convention, e.g. a note saying "the pin is marked
+  # `<!-- cli-pin -->`" — silently becomes the pin. Measured 2026-08-15 (pass eleven): a line above
+  # §10 carrying the marker made all readers return ITS version. The marker fixed the "any sentence
+  # is the anchor" defect and reintroduced it one level in, so the uniqueness is the other half.
+  # **`grep -c` counts LINES, not occurrences** — under /usr/bin/grep, BSD 2.6.0-FreeBSD, which is
+  # what a script gets. Two markers on ONE reflowed line counted as 1, this guard passed, and the
+  # anchored substitution below then rewrote whichever came first — leaving §10 stale and printing
+  # `✓ re-pinned … in §10` at exit 0. That is verbatim the 2026-08-15 incident the marker and this
+  # guard were both invented to stop, reintroduced through this repo's own most-documented machine
+  # note. verify.py's half used Python `.count()` and counted occurrences, so the two halves of the
+  # "same" guard disagreed — and the weaker half was the one attached to the thing that REWRITES.
+  # `grep -o … | grep -c .` counts occurrences everywhere. Measured 2026-08-23.
+  _pins=$(grep -o -- '<!-- cli-pin -->' REFERENCE.md | grep -c . || true)
+  [ "${_pins:-0}" -eq 1 ] || { echo "→ REFERENCE.md carries ${_pins:-0} \`<!-- cli-pin -->\` markers, not 1 — every reader takes the first, so a second is a second pin. Leave exactly one, on §10's version"; exit 1; }
+  echo "installed=$local_v pinned=$pinned"
+  sec=$(awk '/## 10\./{f=1} f{print}' REFERENCE.md); diff=0
+  for g in $(multica --help 2>&1 | sed -n '/COMMANDS/,/FLAGS/p' | grep -E '^\s+[a-z]' | awk '{print $1}' | tr -d ':'); do
+    echo "$sec" | grep -qE "\`$g\`" || { echo "  + group missing from §10: $g"; diff=1; }
+    for s in $(multica "$g" --help 2>&1 | sed -n '/COMMANDS/,/FLAGS/p' | grep -E '^\s+[a-z]' | awk '{print $1}' | tr -d ':'); do
+      echo "$sec" | grep -q "\b$s\b" || { echo "  + subcommand missing from §10: $g $s"; diff=1; }
+    done
+  done
+  if [ $diff -eq 1 ]; then
+    echo "→ surface changed: edit REFERENCE §10 by hand, then re-run"; exit 1
+  fi
+  [ "$local_v" = "$pinned" ] && { echo "  ✓ §10 matches, pin already current"; exit 0; }
+  newest=$(printf '%s\n%s\n' "$local_v" "$pinned" | sort -V | tail -1)
+  if [ "$newest" = "$pinned" ]; then
+    echo "  ✓ §10 matches; your CLI (v$local_v) is behind the pin (v$pinned) — nothing to re-pin, update your CLI"; exit 0
+  fi
+  # The READER above is anchored by name and the WRITER was not, which is half a repair: a global
+  # `s/v0.4.23/v0.4.26/g` rewrites a citation of someone else's release as readily as our own pin,
+  # and that is the incident AGENTS.md dates to 2026-08-15 — performed by hand once, and then
+  # available to be performed mechanically by this script. Measured: with the pin at 0.4.23 the
+  # entire resulting diff was one line, the `MUL-5958` citation, under the message "review and
+  # commit". Worse with an empty pin — a plain copy-edit to §10's wording makes `pinned` empty,
+  # `s/v/v0.4.26/g` follows, and 446 lines across both files are corrupted with exit 0.
+  [ -n "$pinned" ] || { echo "→ could not read the pin — the marker '**vX.Y.Z** <!-- cli-pin -->' is not in REFERENCE.md §10. Re-pin by hand; refusing to sweep"; exit 1; }
+  # One anchored substitution, on the pin itself. README carries dated measurements ("measured,
+  # CLI v0.4.12") whose date IS the claim — re-dating those without re-measuring is the thing the
+  # evidence rungs exist to stop, so they are reported here and never rewritten.
+  perl -0pi -e "s/(\*\*v)${pinned}(\*\* <!-- cli-pin -->)/\${1}${local_v}\${2}/" REFERENCE.md
+  echo "  ✓ surface unchanged — re-pinned v${pinned} → v${local_v} in §10 (review and commit)"
+  stale=$(grep -n 'CLI v[0-9]\+\.[0-9]\+\.[0-9]\+' README.md | grep -v "v${local_v}" || true)
+  [ -n "$stale" ] && { echo "  ! README still cites an older CLI — these are dated measurements, not pins; re-check each against v${local_v} and re-date it, or mark it unverified:"; echo "$stale" | sed 's/^/      README.md:/'; }
+  exit 0
+fi
+
+if [ "${1:-}" = "--install" ]; then
+  printf '#!/usr/bin/env bash\nexec bash scripts/preflight.sh\n' > .git/hooks/pre-commit
+  chmod +x .git/hooks/pre-commit
+  echo "✓ installed as .git/hooks/pre-commit"; exit 0
+fi
+
+fail=0; warn=0
+say_fail() { echo "  ✗ $1"; fail=1; }
+say_warn() { echo "  ! $1"; warn=1; }
+
+echo "preflight — multica-ops"
+
+# 0 · every suite must be run by something. This repo names its suites one by one in CI, and a
+# hardcoded roll-call is the rot surface §1 warns about wearing a workflow's clothes: measured
+# 2026-08-15, `test-preflight-checks.sh` — the suite whose whole job is mutation-testing the
+# checks in THIS file — had never been in that list, so the green tick covered everything except
+# the thing testing the gate. Discovery is the fix; until CI itself discovers, this refuses the
+# gap on the author's machine, where it is still cheap.
+# Every GATE, not just every suite. The first version swept `scripts/test-*.sh` only, so the repair
+# that put `verify.py` into CI could be undone by deleting one workflow step with nothing anywhere
+# noticing — and `check-structure.py`, a gate this repo has always had, was never in CI at all.
+# Measured 2026-08-16 (pass eleven).
+for _s in scripts/test-*.sh scripts/verify.py scripts/check-structure.py; do
+  [ -f "$_s" ] || continue
+  _b=${_s##*/}
+  # INVOKED, not merely named, and read out of every `run:` — including block scalars, which are
+  # the idiomatic form and which the first version could not see at all (it matched only lines
+  # BEGINNING with `run:`, so `run: |` followed by indented commands was invisible). A bare
+  # substring test is satisfied by a mention in a comment, and by a suite named inside an `echo`.
+  # Three findings from pass eleven, plus this repo's own documented pipefail trap living in the
+  # line itself: `grep … | grep -q` returns 141 when the right side matches early and SIGPIPEs the
+  # left — measured 2026-08-16, rc=141 on a large input with the match on line 1, read as "no
+  # match", which here means accusing CI of not running a suite it runs. Counting cannot be
+  # signalled, so it counts.
+  _runs=$(python3 - .github/workflows/*.yml <<'RUNPY' 2>/dev/null || true
+import re, sys
+out = []
+for f in sys.argv[1:]:
+    try: lines = open(f, encoding="utf-8").read().split("\n")
+    except OSError: continue
+    # **A step that cannot run does not run it.** `if: false` on the step is one line and satisfies
+    # "CI executes this" forever — the same shape as commenting the invocation out, which this
+    # extractor already refuses, arriving through the step's condition instead of its body.
+    # Measured 2026-08-23 by an adversarial lens. Only a LITERAL false disqualifies a step: a real
+    # condition is a judgement about a run this script is not having, and guessing at one would
+    # turn an honest matrix step into a refusal.
+    # **A step is a unit, and YAML mappings are unordered.** The first version of this walked
+    # FORWARD from an `if:` line and marked what followed, so `run:` written ABOVE `if: false` in
+    # the same step still counted — legal YAML, and the message beside this check asserts the
+    # opposite. Measured 2026-08-23 by a cold-read lens. Group the lines into steps first, then
+    # judge each step whole. `0` counts as false the same as `false`; the message says so too.
+    # **A job-level `if: false` disables every step in it**, and the step grouper below only ever
+    # looked inside `- ` sequence items — so `jobs.<id>.if`, the canonical way to switch a job off,
+    # was invisible while the refusal message advertised that a step-level one counts. Measured
+    # 2026-08-27. A job that cannot run runs none of its steps, so the whole file's steps are dead
+    # when every job is off; here it is enough to kill the steps under that job's block.
+    dead = set()
+    _j = 0
+    while _j < len(lines):
+        _c = re.match(r"^(\s{2,})([A-Za-z0-9_.-]+):\s*$", lines[_j])
+        if _c:
+            _ji, _k = len(_c.group(1)), _j + 1
+            _off = False
+            while _k < len(lines) and (not lines[_k].strip()
+                                       or len(lines[_k]) - len(lines[_k].lstrip()) > _ji):
+                _ic = re.match(r"^\s+if:\s*(.+?)\s*$", lines[_k])
+                if _ic and len(lines[_k]) - len(lines[_k].lstrip()) == _ji + 2:
+                    _v = _ic.group(1).strip().strip(chr(34)).strip(chr(39))
+                    _v = re.sub(r"^\$\{\{\s*(.*?)\s*\}\}$", r"\1", _v).strip().lower()
+                    if _v in ("false", "0"):
+                        _off = True
+                _k += 1
+            if _off:
+                dead.update(range(_j, _k))
+            _j = _k
+            continue
+        _j += 1
+    step_start = None
+    step_indent = None
+    steps = []
+    for j, ln in enumerate(lines):
+        if not ln.strip():
+            continue
+        ind = len(ln) - len(ln.lstrip())
+        if re.match(r"^\s*-\s", ln) and (step_indent is None or ind <= step_indent):
+            if step_start is not None:
+                steps.append((step_start, j))
+            step_start, step_indent = j, ind
+        elif step_indent is not None and ind <= step_indent:
+            steps.append((step_start, j)); step_start = step_indent = None
+    if step_start is not None:
+        steps.append((step_start, len(lines)))
+    for s, e in steps:
+        for k in range(s, e):
+            c = re.match(r"^\s*-?\s*if:\s*(.+?)\s*$", lines[k])
+            if not c:
+                continue
+            val = c.group(1).strip().strip(chr(34)).strip(chr(39))
+            val = re.sub(r"^\$\{\{\s*(.*?)\s*\}\}$", r"\1", val).strip().lower()
+            if val in ("false", "0"):
+                dead.update(range(s, e))
+                break
+    i = 0
+    while i < len(lines):
+        m = re.match(r"^(\s*)-?\s*run:\s*(\|[-+]?|>[-+]?)?\s*(.*)$", lines[i])
+        if m and i in dead:
+            i += 1
+            continue
+        if m:
+            indent, block, rest = len(m.group(1)), m.group(2), m.group(3)
+            if rest: out.append(rest)
+            if block:
+                i += 1
+                while i < len(lines) and (not lines[i].strip() or
+                                          len(lines[i]) - len(lines[i].lstrip()) > indent):
+                    out.append(lines[i]); i += 1
+                continue
+        i += 1
+# A COMMENT inside a block scalar is not an invocation, and the extractor used to hand it to the
+# matcher verbatim — so commenting a step out (the ordinary way to stop running something) left
+# this gate green. Measured 2026-08-21 (pass twelve): three lenses prescribed three different
+# repairs; the matrix that decided between them is in the critic's report. A quoted span is
+# dropped for the same reason: `echo "run bash scripts/test-foo.sh to reproduce"` names a suite
+# without running it, and an instruction in an echo is documentation, not CI.
+# No literal `'` anywhere in this function, and that is not style. This heredoc lives inside
+# `$( … )`, and bash 3.2 — the /bin/bash every macOS ships — scans for the closing paren while
+# tracking quotes, even through a quoted heredoc it should not be reading at all. An ODD number
+# of single quotes here made the substitution swallow 230 further lines and die on a `case` arm
+# 240 lines below. Measured 2026-08-21; the same family as this repo's note about `)` in case
+# patterns inside `$( … )`.
+# A quoted span is dropped only when it holds WHITESPACE. `bash "scripts/test-foo.sh"` is an
+# ordinary quoted argument and was being refused (measured 2026-08-23), while the thing this
+# dropping exists to kill — `echo "run bash scripts/test-foo.sh to reproduce"` — is prose and
+# always has spaces in it. Structural, not a word list: a bare quoted path is an argument, a
+# quoted sentence is documentation.
+# **Comments are cut BEFORE quotes are unwrapped, and only outside quotes.** Unwrapping first
+# let a `#` that had been safely inside a quoted span survive into the plain text, where
+# `split("#")` then ate the rest of the line: `sed -i "s/#.*//" x.txt && bash scripts/test-foo.sh`
+# became `sed -i s/` and the suite read as never invoked. A regression from the quote change,
+# measured 2026-08-23 — and inverted from its intent, since adding a space inside the quotes was
+# what made it pass. Scan once, tracking quote state, and cut at the first `#` that is genuinely
+# outside one.
+_q = chr(39)
+def _keep(m):
+    # A quoted token is unwrapped only when it could be an ARGUMENT: no whitespace, and no shell
+    # metacharacter that would open a command position the shell itself never sees. Returning the
+    # inner text unconditionally created a new evasion — `echo "|bash" scripts/test-foo.sh` spliced
+    # a pipe into the stream and read as an invocation, where the old blanking could not.
+    # Measured 2026-08-23; a class this change introduced, caught by probing its own new behaviour.
+    # The metacharacter set is built from ordinals because a literal backtick here can kill the
+    # whole file. **Three attempts to state the rule precisely have shipped wrong** — "an odd
+    # number of backticks", then "unpaired inside a double-quoted span", then a version that
+    # exonerated parentheses and named the hiding places without naming the lexer state they hide
+    # in. Each was measured, each was closer, each was still false somewhere.
+    #
+    # So this stops trying to be a rule and gives you the check. **What is true and small enough to
+    # hold:** bash lexes the body of `$( … )` as shell text even through a quoted heredoc, and what
+    # it sees there must balance — backticks, parentheses, quotes. Single quotes and a `#` at a
+    # word start hide things from it; double quotes hide less than you expect. The failure is
+    # always the same shape: `unexpected EOF` reported at the line the substitution OPENED,
+    # hundreds of lines above the fault.
+    #
+    # **`/bin/bash -n scripts/preflight.sh` catches every case of it instantly, and the suite runs
+    # that check** (`test-preflight-checks.sh`). Write what you need, run it, and do not re-derive
+    # the mechanism from this comment — three people have, and all three were wrong.
+    _meta = "".join(chr(c) for c in (59, 38, 124, 40, 41, 96))
+    inner = m.group(0)[1:-1]
+    if inner and not re.search(r"\s", inner) and not any(ch in _meta for ch in inner):
+        return inner
+    return " "
+def _strip_comment(s):
+    q = None
+    for i, ch in enumerate(s):
+        if q:
+            if ch == q:
+                q = None
+        elif ch in (chr(34), _q):
+            q = ch
+        elif ch == "#":
+            return s[:i]
+    return s
+def _code(s):
+    s = _strip_comment(s)
+    return re.sub('"[^"]*"|' + _q + "[^" + _q + "]*" + _q, _keep, s)
+out = [c for c in (_code(l) for l in out) if c.strip()]
+print("\n".join(out))
+RUNPY
+  )
+  # A command position, not a mention: the file name must follow an interpreter or a path prefix.
+  # The interpreter must itself sit at a command position — line start or after a separator —
+  # not merely appear somewhere on the line. `[[:space:]]*` after the separator because a
+  # continued line is indented, and dropping that allowance broke every honest block-scalar
+  # step (measured, first attempt, 2026-08-21).
+  # Between the separator and the interpreter an honest step may carry environment assignments
+  # or `env`; between the interpreter and the path it may carry flags. `env CI=1 bash x.sh` and
+  # `bash -e x.sh` were both refused until 2026-08-23 — measured against eleven ordinary shapes,
+  # of which four failed. What must NOT relax is the command POSITION itself: the interpreter
+  # still has to open the command, so a name inside an echo or a sentence stays a mention.
+  # The prefixes allowed before the interpreter are SHELL GRAMMAR — a closed set the shell itself
+  # defines — plus the wrappers that take a command as their argument. That is not the kind of
+  # vocabulary this repository distrusts: `if`, `!`, `then`, `time` and `exec` are not wording
+  # somebody might phrase differently, they are the language. Six ordinary shapes were refused
+  # before this, measured 2026-08-23 — `if bash x.sh; then`, `if ! bash x.sh`, `time bash x.sh`,
+  # `sudo bash x.sh`, `exec bash x.sh`, `xvfb-run bash x.sh` — and `if` and `time` are the two
+  # commonest ways anyone wraps a suite. What still must NOT relax is the command position: a
+  # suite named inside an `echo` or a sentence is a mention, not a run.
+  _pre="([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*|env|if|then|else|do|elif|!|time|exec|sudo|nice|command|xvfb-run|dbus-run-session)"
+  _inv="(^|[;&|(]+)[[:space:]]*(${_pre}[[:space:]]+)*((bash|sh|python3)[[:space:]]+(-[^[:space:]]+[[:space:]]+)*|\./)[^[:space:]]*${_b}"
+  if [ "$(printf '%s\n' "$_runs" | grep -cE "$_inv")" -eq 0 ]; then
+    # **Name the shape, because the reader is looking at a step that plainly runs it.** The old
+    # message asserted "no workflow step invokes it" flatly, which reads as wrong to anyone whose
+    # workflow does — and a gate that reads as wrong gets its workflow edited to please it, which
+    # is how the honest shape becomes the rare one. This check matches a COMMAND POSITION, not the
+    # file's name anywhere on a line; saying so is the difference between a reader fixing their
+    # step and a reader deleting this gate. Named 2026-08-23 by a cold-read lens at the terminal.
+    say_fail "$_b is in scripts/ and no workflow \`run:\` step is seen to INVOKE it — CI would not \
+execute it, and its green tick says otherwise. What counts is an interpreter at a command \
+position: \`bash scripts/$_b\` (the path as CI sees it, from the repo root — not the bare basename), \`sh\`, \`python3\`, or \`./scripts/$_b\` — optionally after \`if\`, \`time\`, \`sudo\`, \
+\`exec\`, \`env\`, a VAR=value assignment, or a wrapper like \`xvfb-run\`, and optionally with the \
+path quoted. What does NOT count, on purpose: the name inside an \`echo\` or a comment, and a step \
+carrying \`if: false\` or \`if: 0\` anywhere in it. If your step is one of the accepted shapes and this still fires, \
+the matcher is wrong and not you: commit with your repository's own bypass and open an issue quoting the step, rather than rewriting a workflow that works"
+  fi
+done
+
+# 1 · every manifest carries the version in skills/mops/SKILL.md — a sweep, not a pair.
+# We ship four manifests across four runtimes and a hand-maintained checklist only bumps the
+# ones somebody remembers: opsinist lost a release to three stragglers this way. The list is
+# DISCOVERED (any tracked .json declaring a "version"), because a hardcoded list is the same
+# rot surface wearing a script's clothes — a fifth runtime's manifest is checked the day it
+# lands, without anyone editing this.
+sv=$(grep -m1 '^version:' skills/mops/SKILL.md | awk '{print $2}')
+[ -n "$sv" ] || say_fail "skills/mops/SKILL.md has no version: frontmatter line"
+# **Every skill's frontmatter must be YAML a strict parser reads.** A plain value holding `: ` is a
+# mapping inside a mapping to YAML; six descriptions here were written that way and SkillSpector's
+# strict parser rejected such a manifest in the pre-tag scan of 2026-09-24. One runtime reading it
+# leniently is no promise about the next.
+# **It fails closed**: a crash inside the check is a failure, not an empty report — the first draft
+# fed the checker's output through a here-string and never read its exit status, so a skill file
+# that was not UTF-8 stopped the scan silently and every skill after it went unchecked
+# (an adversarial lens, 2026-09-24). The other copy of this check had failed closed from the start.
+# (a temp file, not `$(…)`: bash 3.2 misreads an unpaired backtick in a heredoc inside `$(…)`)
+_yf=$(mktemp)
+python3 - > "$_yf" <<'PY' || say_fail "the frontmatter check itself failed to run — its error is above; nothing after it was checked"
+import pathlib, re, sys
+def frontmatter_faults(p):
+    """Plain frontmatter values a strict YAML parser rejects or cuts short — a heuristic, stated as
+    one. It refuses `: `, a trailing `:` and a value opening with `@` or a backtick, which a strict
+    parser rejects; a tab after the key's `:`, in a plain value or its wrapped lines' indent, or
+    opening a line of a block, flow or nested value — PyYAML rejects it in each of those places;
+    and a `#` that opens a value or follows a space, which YAML reads as a comment that drops the
+    rest of the line. It reads top-level keys only, plain (letters, digits, `_`, `-`) or quoted,
+    which is every key a skill's frontmatter has; a nested or dotted key goes unread. Beyond that
+    tab, quoted scalars, block scalars and flow collections go unchecked here — only a strict parser
+    reads them whole. Known limits, measured against PyYAML on 2026-09-24: three tabs pass — one
+    opening a line after a quoted value has closed, on its key's line or a later one; one inside a
+    flow value written on the key's line; and one after spaces in the indent of a flow or nested
+    value's line (inside a block scalar that tab is content, and valid). The scan before a tag
+    reports each as a `manifest_parse_error` in its JSON, not in the summary it prints. And a line
+    inside a quoted value spanning lines that reads like a key and a tab is refused although it is
+    valid, which is loud. A byte-order
+    mark is read past (text mode already reads Windows line endings as plain newlines), the closing
+    `---` may end the file, a file whose frontmatter it cannot find is refused rather than passed,
+    and a file that is not UTF-8 raises, which the caller fails closed on."""
+    fm = re.match(r"---\n(.*?)\n---(?:\n|\Z)", p.read_text(encoding="utf-8-sig"), re.S)
+    if not fm:
+        return [f"{p}: no frontmatter this check can read — the file must open with a line that is "
+                f"exactly `---`, and the frontmatter close with another"]
+    faults, kind, key = [], None, None
+    for line in fm.group(1).split("\n"):
+        kv = re.match(r"""^([\w-]+|"[^"]*"|'[^']*'):(?:([ \t]+)(.*))?$""", line)
+        if kv:
+            key, lead, v = kv.group(1), kv.group(2) or "", kv.group(3) or ""
+            kind = ("quoted" if v[:1] in ("\"", "'") else "plain" if v and v[:1] not in "|>[{"
+                    else "other")
+            body = v if kind == "plain" else ""
+        elif kind == "plain" and (not line or line[:1] in " \t"):
+            body = line.lstrip()
+            lead = line[:len(line) - len(body)]
+        elif kind == "other" and line[:1] == "\t":
+            lead, body = "\t", ""
+        else:
+            lead, body = "", ""
+            if line and line[:1] not in " \t":
+                kind = None
+        cut = re.search(r"(?:^| )#", body)
+        head = body[:cut.start()] if cut else body
+        if "\t" in lead + head:
+            faults.append(f"{p}: frontmatter `{key}` is not valid YAML — it holds a tab after the ':', "
+                          f"in a plain value, or opening one of its indented lines, where PyYAML "
+                          f"allows only spaces; use spaces")
+        elif ": " in head or head.endswith(":") or head[:1] in ("@", "`"):
+            faults.append(f"{p}: frontmatter `{key}` is not valid YAML — a plain value holding ': ', "
+                          f"ending in ':', or opening with '@' or a backtick; quote it")
+        elif cut:
+            faults.append(f"{p}: frontmatter `{key}` loses the rest of its line after the '#' — YAML "
+                          f"reads a '#' that opens a value or follows a space as a comment; quote it")
+    return faults
+
+
+for p in sorted(pathlib.Path("skills").glob("*/SKILL.md")):
+    for f in frontmatter_faults(p):
+        print(f)
+PY
+while IFS= read -r _yl; do
+  [ -n "$_yl" ] && say_fail "$_yl"
+done < "$_yf"
+rm -f "$_yf"
+swept=0
+while IFS= read -r m; do
+  mv_=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("version",""))' "$m" 2>/dev/null)
+  [ -n "$mv_" ] || continue
+  swept=$((swept+1))
+  [ "$mv_" = "$sv" ] || say_fail "version straggler: $m=$mv_ but skills/mops/SKILL.md=$sv"
+done <<< "$(git ls-files '*.json' | grep -v '^company/')"
+# **Two, not three, since Gemini CLI was retired** (2026-06-18) and its manifest was deleted with
+# it. Antigravity reads the ROOT `plugin.json`, which declares no version, so it cannot be swept
+# here — `agy plugin validate .` is what says whether it still loads.
+[ "$swept" -ge 2 ] || say_warn "manifest sweep saw only $swept versioned manifest(s) — expected at least 2 (Claude Code, Codex); has one stopped declaring a version?"
+# **The guard's own stamp is a version site the sweep could not see, because it is not JSON.**
+# `templates/company-preflight.sh` carries `# guard-version:` on line 2, and the guard compares it
+# against the company's guide to say *this copy is older than the skill running it*. So it must
+# equal the shipping version EVERY release, whether or not the guard changed — otherwise a company
+# that has just upgraded and re-copied the guard is told the guard is stale, and **re-copying, the
+# remedy the message prescribes, does not clear it.** Measured 2026-08-23: the stamp sat at 0.4.9
+# against a declared 0.4.11, two releases, so every company that upgraded to either met a warning
+# it could not act on.
+gv_=$(sed -n 's/^# guard-version:[[:space:]]*\([0-9.]*\).*/\1/p' templates/company-preflight.sh | head -1)
+[ "$gv_" = "$sv" ] || say_fail "templates/company-preflight.sh is stamped guard-version $gv_ while \
+skills/mops/SKILL.md declares $sv — the guard compares that stamp against the company's guide, so \
+every upgraded company would be warned its guard is stale and re-copying would not clear it. Bump line 2"
+
+# 1a-ter · a released entry's date must be the date it SHIPPED, not the date it was written.
+#          Measured 2026-08-22: 0.2.8 and 0.4.7 both said 2026-08-16 while their tags were cut on
+#          2026-08-20 — four days, and a reader takes the heading for the shipping date. The gap
+#          is structural rather than careless: this repository's own law is that the tag waits for
+#          the owner's word, so writing-date and shipping-date differ by however long that takes.
+#          The repair is that the date is set AT THE TAG (AGENTS.md → the release ritual), and this
+#          is the form that notices when it was not.
+#          FROM THE CUTOFF FORWARD, like every other dated rule here: older entries carry ±1-day
+#          gaps that are midnight-and-timezone artifacts (v0.1.16 tagged 22:54, v0.1.19 at 00:56),
+#          and retro-editing frozen entries to satisfy a new check is exactly what the frozen rule
+#          forbids. A marked correction blockquote naming the tag date satisfies this check too.
+python3 - <<'DATEPY' || FAIL=1
+import re, subprocess, sys, pathlib
+CUTOFF = "2026-08-22"
+text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+heads = {}
+for m in re.finditer(r"^## (\d+\.\d+\.\d+) — (\d{4}-\d\d-\d\d)\s*$", text, re.M):
+    heads[m.group(1)] = m.group(2)
+raw = subprocess.run(["git", "for-each-ref", "--format=%(refname:short) %(creatordate:short)",
+                      "refs/tags/v*"], capture_output=True, text=True).stdout
+bad = []
+for line in raw.split("\n"):
+    if not line.strip():
+        continue
+    tag, tdate = line.split()
+    if tdate < CUTOFF:
+        continue
+    ver = tag[1:]
+    entry = heads.get(ver)
+    if entry is None or entry == tdate:
+        continue
+    # a marked correction naming the tag's date is the permitted answer
+    sec = re.search(r"^## " + re.escape(ver) + r" — .*?(?=^## )", text, re.S | re.M)
+    if sec and re.search(r"^>.*" + re.escape(tdate), sec.group(0), re.M):
+        continue
+    bad.append(f"{ver}: entry says {entry}, tag cut {tdate}")
+for b in bad:
+    print("  \033[31m✗\033[0m " + b + " — a changelog date is read as the date the version "
+          "SHIPPED. Set it when the tag is cut, or add a marked correction naming the tag's date")
+sys.exit(1 if bad else 0)
+DATEPY
+
+# 1b · the documented skill-import URL pins THIS version, not a moving ref.
+#      An import becomes agent instructions, so `tree/main` means the content behind someone's
+#      agents can change without them moving — the substance of the auditors' W012 finding,
+#      2026-07-30. A pin only works if it is maintained, so the maintenance is a check.
+#      **SECURITY.md is exempt, on purpose.** It records a URL that was *run once, on a date*, as
+#      the control for a measurement. Dragging that forward each release would make the control
+#      unreproducible — the exact defect the record exists to avoid — so this check covers
+#      instructions, which rot, and not history, which must not move. Verify the exemption is not
+#      hiding a real instruction: SECURITY.md gives none, and this asserts it.
+#      The exemption is kept honest by a POSITIVE assertion rather than by trying to tell a
+#      record from an instruction by its shape — they are the same shape, which is why the first
+#      attempt at this guard fired on the record it was written to protect. Instead: INSTALL.md
+#      must still carry the pinned line. Move the instruction into the exempt file to dodge the
+#      pin and this fires, because the place it belongs went empty.
+grep -q "multica-ops/tree/v${sv}/skills/mops" INSTALL.md 2>/dev/null || \
+  say_fail "INSTALL.md no longer carries the import line pinned to v$sv — §1b exempts SECURITY.md \
+because it records past runs, and that exemption only holds while the real instruction lives here."
+#      **And the exemption asserts a negative, because a guard that only catches a MOVE is
+#      cheaper to walk around than to obey**: adding a second URL to the exempt page leaves
+#      INSTALL.md untouched and passes. So every `tree/` URL inside SECURITY.md must be either
+#      the one recorded control or the current pin — anything else is refused, on the page a
+#      reader trusts most.
+sec_bad=$(grep -hoE 'multica-ops/tree/[A-Za-z0-9._-]+/skills/mops' SECURITY.md 2>/dev/null | sort -u \
+          | grep -vE "multica-ops/tree/(v${sv}|v0\.4\.4)/skills/mops" || true)
+[ -n "$sec_bad" ] && while IFS= read -r r; do
+  say_fail "SECURITY.md carries an import URL that is neither the recorded control (v0.4.4) nor \
+the current pin (v$sv): $r — the page is exempt from the pin check, not from scrutiny."
+done <<< "$sec_bad"
+pinfiles=$(ls -1 *.md 2>/dev/null | grep -v '^SECURITY\.md$')
+bad_ref=$(grep -hoE 'multica-ops/tree/[A-Za-z0-9._-]+/skills/mops' $pinfiles 2>/dev/null | sort -u \
+          | grep -v "multica-ops/tree/v${sv}/skills/mops" || true)
+[ -n "$bad_ref" ] && while IFS= read -r r; do
+  say_fail "import URL is not pinned to v$sv: $r"
+done <<< "$bad_ref"
+
+# 2 · CHANGELOG documents this version (it is the migration map for /upgrade)
+grep -q "^## ${sv}\b" CHANGELOG.md || say_fail "CHANGELOG.md has no '## $sv' section"
+
+# 3 · README lists every companion file
+for f in $(ls *.md | grep -vE '^(README|CHANGELOG)\.md$'); do
+  grep -q "$f" README.md || say_fail "README.md does not mention $f"
+done
+
+# 4 · internal .md links resolve — from every doc we ship, not only the root ones, and
+# including links that carry a path (`](templates/X.md)`): the filename-only pattern skipped
+# those silently, so a whole class of link could rot inside the check's own blind spot.
+link_bad=$(python3 - <<'PYEOF'
+import glob, os, re
+bad = []
+for f in (glob.glob("*.md") + glob.glob("templates/*.md") + glob.glob("commands/*.md")
+          + glob.glob("evals/*.md") + glob.glob("evals/runs/*.md") + glob.glob("sources/*.md")):
+    for l in re.findall(r"\]\(([A-Za-z0-9_./-]+\.md)(?:#[^)]*)?\)", open(f, encoding="utf-8").read()):
+        if not (os.path.exists(l) or os.path.exists(os.path.join(os.path.dirname(f), l))):
+            bad.append(f"broken link in {f}: {l}")
+print("\n".join(sorted(set(bad))))
+PYEOF
+)
+[ -n "$link_bad" ] && while IFS= read -r l; do say_fail "$l"; done <<< "$link_bad"
+
+# 4d · a name is an edge only when it is a link — the check above reads links, so a backticked
+#      name was an edge nothing could see or check. Measured 2026-09-11: 53 links against 419
+#      backticked `.md` names, of which 42 named a file in this tree; `link-names.py --write`
+#      linked those it may — 31, since §5c keeps a companion's name of a companion a name and the
+#      always-loaded core keeps its own, every link there being paid by every run — and
+#      this keeps the next one from starting the drift again. The fix is mechanical, so the
+#      refusal says the one command that makes it.
+if [ -f scripts/link-names.py ]; then
+  _ln=$(python3 scripts/link-names.py 2>&1); _lnc=$?
+  if [ "$_lnc" -ne 0 ]; then
+    say_fail "$(printf '%s\n' "$_ln" | tail -1) — first: $(printf '%s\n' "$_ln" | head -1)"
+  fi
+fi
+
+# 4e · every project on the shelf carries a link — the owner's rule, 2026-09-25, held by the
+#      same script as the sibling's §7c, byte for byte. It reads the head of each entry in a
+#      shelf column of STACKS.md, because a shelf's bold is mostly licences and emphasis; what
+#      it cannot see is named in its docstring. First honest run: 43 heads, every one real.
+if [ -f scripts/check-shelf-links.py ]; then
+  _sl=$(python3 scripts/check-shelf-links.py 2>&1); _slc=$?
+  if [ "$_slc" -ne 0 ]; then
+    while IFS= read -r l; do say_fail "$l"; done <<< "$_sl"
+  fi
+fi
+
+# 4b · an external URL carrying a literal `(` is stored percent-encoded, or the link checker
+# reads it truncated and reports a live page as rot. Measured next door as issue #1: four
+# "dead" links that all answered 200, one of them a URL cut at its own parenthesis. The
+# checker's extraction cannot be made paren-aware without a markdown parser, so the corpus
+# holds the invariant instead and this is what holds the corpus to it.
+paren_url=$(grep -rnoE '\]\(https?://[^)[:space:]]*\(' -- *.md templates/*.md 2>/dev/null || true)
+[ -n "$paren_url" ] && while IFS= read -r l; do
+  say_fail "URL contains a literal '(' — percent-encode it as %28/%29: $l"
+done <<< "$paren_url"
+
+# 4c · the machinery's own paths live under `_ops/`, never `docs/`. A project's `docs/` is the
+# craft's, and before 0.4.0 ours was mixed into it. The old habit is one keystroke away, so the
+# invariant is held rather than remembered. Two things are deliberately NOT matched: a leading
+# slash (`/docs/squads` is a multica.ai documentation URL, not a file — the blind-sed trap that
+# cost the sibling project a line reading "200 _ops/requests/hour"), and `docs/cache/`, which
+# appears only inside a prompt-injection example describing a file the project already owns.
+# **And it reads `skills/*/SKILL.md` too — the omission that made it blind where it mattered
+# most.** The layout sweep globbed the root and `templates/`, so the always-loaded core kept
+# sixteen `docs/` paths through the whole release, and this guard looked in exactly the same two
+# places and confirmed the silence. A guard that shares the sweep's blind spot is not a check,
+# it is the same mistake wearing a second name. Found by the contradiction lens, 2026-08-07.
+stray=$(grep -rnoE '(^|[^/[:alnum:]_-])docs/(ROADMAP|TEAM|TOOLING|DECISIONS|LATER|FIELD-NOTES|ARCHITECTURE|MAP|BUDGET|ECONOMICS|assets|analytics|research|audience|design-system|brand|skill-backups|tooling|\.workspace-state)' \
+        -- *.md templates/*.md skills/*/SKILL.md 2>/dev/null | grep -v '^CHANGELOG.md:' || true)
+[ -n "$stray" ] && while IFS= read -r l; do
+  say_fail "machinery path still under docs/ — it lives in _ops/ since 0.4.0: $l"
+done <<< "$stray"
+
+# 5a · official guidance: skills/mops/SKILL.md body under 500 lines
+lines=$(wc -l < skills/mops/SKILL.md | tr -d ' ')
+[ "$lines" -gt 500 ] && say_fail "skills/mops/SKILL.md $lines lines — over Anthropic's 500-line guidance"
+
+# 5b · reference files >100 lines need a table of contents (partial reads otherwise miss scope)
+# Exempt: SKILL (its load-routing table is the TOC), and the read-top-to-bottom entry docs
+# README/CHANGELOG/AGENTS — those are narrative, not navigable companion references.
+for f in $(ls *.md | grep -vE '^(README|CHANGELOG|SKILL|AGENTS)\.md$'); do
+  n=$(wc -l < "$f" | tr -d ' ')
+  [ "$n" -gt 100 ] && ! grep -qE '^## Contents' "$f" && say_warn "$f is $n lines with no '## Contents'"
+done
+
+# 5d · cross-references to interview items must name the item they point at.
+# Inserting a checklist item silently shifts every "#N" elsewhere; requiring the title
+# makes the drift detectable instead of invisible.
+ref_bad=$(python3 - <<'PYEOF'
+import re,glob,sys
+sec=re.search(r"## 16\. Interview checklist.*?\n(.*?)(?=\n## |\Z)", open("BOOTSTRAP.md").read(), re.S)
+items={}
+if sec:
+    for m in re.finditer(r"^(\d+)\.\s+\*\*(.+?)\*\*", sec.group(1), re.M):
+        items[int(m.group(1))]=m.group(2)
+bad=[]
+for f in glob.glob("*.md")+glob.glob("templates/*.md"):
+    for m in re.finditer(r"checklist #(\d+)(?:\s*·\s*([^)\n]+?))?\s*\)", open(f).read()):
+        n=int(m.group(1)); title=(m.group(2) or "").strip()
+        if n not in items: bad.append(f"{f}: #{n} has no such interview item"); continue
+        if not title: bad.append(f"{f}: #{n} must name the item (checklist #{n} · {items[n]})"); continue
+        a=re.sub(r"[^a-z]","",title.lower()); b=re.sub(r"[^a-z]","",items[n].lower())
+        if a not in b and b not in a:
+            bad.append(f"{f}: #{n} says '{title}' but item {n} is '{items[n]}'")
+print("\n".join(bad))
+PYEOF
+)
+[ -n "$ref_bad" ] && while IFS= read -r l; do say_fail "$l"; done <<< "$ref_bad"
+
+# 5e · prose cross-references ("STACKS → skill screening") must hit something real.
+# A silently no-op edit leaves the pointer dangling; links are checked, prose was not.
+xref_bad=$(python3 - <<'PYEOF'
+import re,glob
+bad=[]
+for f in glob.glob("*.md")+glob.glob("templates/*.md"):
+    for m in re.finditer(r"\b(SKILL|ROLES|STACKS|PLAYBOOKS|FLOWS|REFERENCE|BOOTSTRAP|COMMANDS|MODULES|EXAMPLES|USE-CASES) → ([A-Za-z][A-Za-z0-9 &'/-]*)", open(f).read()):
+        name = m.group(1)
+        # the corpus core moved into the plugin's skills/ layout; its companions did not
+        tgt = "skills/mops/SKILL.md" if name == "SKILL" else name + ".md"
+        sect = m.group(2).strip().rstrip(".,;)")
+        try: body=open(tgt).read()
+        except OSError: bad.append(f"{f}: points at {tgt}, which does not exist"); continue
+        hay=re.sub(r"[^a-z]","",body.lower())
+        if re.sub(r"[^a-z]","",sect.lower()) not in hay:
+            bad.append(f"{f}: '{m.group(1)} → {sect}' matches nothing in {tgt}")
+print("\n".join(bad))
+PYEOF
+)
+[ -n "$xref_bad" ] && while IFS= read -r l; do say_fail "$l"; done <<< "$xref_bad"
+
+# 5f · a Contents block must list exactly the file's own ## headings, as working anchors.
+# Hand-maintained tables of contents go stale the moment a section is added or renamed.
+toc_bad=$(python3 - <<'PYEOF'
+import re, glob
+def anchor(h):
+    a = re.sub(r"`|\*\*|\*|\[|\]|\(|\)", "", h)
+    a = re.sub(r"[^\w\s-]", "", a, flags=re.U).strip().lower()
+    return re.sub(r"\s+", "-", a)
+def clean(h): return re.sub(r"`|\*\*|\*", "", h).strip()
+bad=[]
+for f in sorted(glob.glob("*.md")):
+    t=open(f).read()
+    m=re.search(r"^## Contents\n(.*?)(?=^## )", t, re.S|re.M)
+    if not m: continue
+    want=[f"- [{clean(h)}](#{anchor(h)})" for h in re.findall(r"^## (.+)$", t, re.M) if h.strip()!="Contents"]
+    have=[l.strip() for l in m.group(1).strip().split("\n") if l.strip()]
+    if have!=want:
+        miss=[w for w in want if w not in have]; extra=[h for h in have if h not in want]
+        d=(f" missing {len(miss)}" if miss else "")+(f" stale {len(extra)}" if extra else "")
+        bad.append(f"{f}: Contents does not match its headings —{d or ' order differs'}")
+print("\n".join(bad))
+PYEOF
+)
+[ -n "$toc_bad" ] && while IFS= read -r l; do say_fail "$l"; done <<< "$toc_bad"
+
+# 5g · a script nobody documents is a script nobody runs.
+for f in scripts/*; do
+  b=$(basename "$f")
+  [ "$b" = "preflight.sh" ] && continue
+  git check-ignore -q "$f" && continue   # build artifacts (__pycache__) are not documentation
+  grep -rql -- "$b" ./*.md 2>/dev/null || say_warn "scripts/$b is not mentioned in any doc"
+done
+
+# 5h · the guide-template weight quoted in ROLES must match the file it describes.
+# The skill tells everyone that recorded facts expire; this is that rule turned inward.
+gt_bad=$(python3 - <<'PYEOF'
+import re
+try:
+    actual = len(open("templates/GUIDE-template.md").read()) / 4 / 1000
+except OSError:
+    raise SystemExit
+m = re.search(r"GUIDE-template[^~]*~([\d.]+)k tokens", open("ROLES.md").read())
+if m and abs(float(m.group(1)) - actual) > 0.25:
+    print("ROLES quotes the guide template at ~%sk tokens; it is ~%.1fk" % (m.group(1), actual))
+PYEOF
+)
+[ -n "$gt_bad" ] && say_warn "$gt_bad"
+
+# 5i · structural integrity — nine classes of defect that each shipped once.
+# Deterministic ones fail, heuristic ones warn. See scripts/check-structure.py.
+if [ -f scripts/check-structure.py ]; then
+  while IFS= read -r line; do
+    case "$line" in
+      FAIL:*) say_fail "${line#FAIL:}" ;;
+      WARN:*) say_warn "${line#WARN:}" ;;
+    esac
+  done <<< "$(python3 scripts/check-structure.py 2>/dev/null)"
+fi
+
+# 5j · a version bump must bring the tests with it. Evals and the lens review go stale
+# silently — 2.3 shipped with evals a release behind until caught by hand. Compared against
+# the LAST RELEASE TAG, not HEAD: a working-tree-vs-HEAD check stops firing the moment the
+# bump is committed (FIELD-NOTES 2026-07-27), so the guard went blind after every commit.
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+  last_tag=$(git describe --tags --abbrev=0 2>/dev/null)
+  if [ -z "$last_tag" ]; then
+    say_warn "no release tag yet — skipping the version-bump / evals guard (fresh clone)"
+  else
+    tag_ver=$(git show "${last_tag}:skills/mops/SKILL.md" 2>/dev/null | grep -m1 "^version:" | tr -dc "0-9.")
+    work_ver=$(grep -m1 "^version:" skills/mops/SKILL.md | tr -dc "0-9.")
+    if [ -n "$tag_ver" ] && [ "$tag_ver" != "$work_ver" ]; then
+      git diff --quiet "$last_tag" -- evals/README.md 2>/dev/null &&         say_warn "version bumped ${tag_ver} → ${work_ver} since ${last_tag} but evals/README.md is unchanged — refresh the eval scenarios for any new behaviour"
+      say_warn "releasing ${work_ver}: run the four review lenses before tagging (AGENTS.md → Cutting a release)"
+      case "$work_ver" in
+        *.0) [ -f "evals/runs/${work_ver}.md" ] || say_warn "no evals/runs/${work_ver}.md — a minor/major is not tagged without a run record (evals/runs/TEMPLATE.md)";;
+      esac
+      # 5j-bis · the entry's Trio line is measured against the release it describes — the same
+      #          script as the sibling's §1b-ter, byte for byte. 0.4.18 shipped saying five
+      #          situations and had added seven (found 2026-09-25). No Trio line yet warns, since the
+      #          entry is written last; one that disagrees, or that this cannot read, fails.
+      if [ -f scripts/check-trio.py ]; then
+        _tr=$(python3 scripts/check-trio.py 2>&1); _trc=$?
+        if [ "$_trc" = 2 ] || [ "$(printf '%s\n' "$_tr" | grep -c 'has no \*\*Trio:\*\* line')" -gt 0 ]; then
+          say_warn "$(printf '%s\n' "$_tr" | tail -1)"
+        elif [ "$_trc" != 0 ]; then
+          while IFS= read -r l; do say_fail "$l"; done <<< "$_tr"
+        fi
+      fi
+    fi
+  fi
+fi
+
+# 5c · references must stay one level deep from skills/mops/SKILL.md.
+# AGENTS.md and CLAUDE.md are exempt because they are not companions: they are the repo's own
+# dev furniture, read by whoever is changing the skill, and pointing at the contract and the
+# prose rules is the whole job of both.
+for f in $(ls *.md | grep -vE '^(SKILL|README|CHANGELOG|AGENTS|CLAUDE)\.md$'); do
+  nested=$(grep -ohE '\]\([A-Z][A-Za-z-]*\.md' "$f" 2>/dev/null | head -1)
+  [ -n "$nested" ] && say_warn "$f links to another companion — keep references one level deep from skills/mops/SKILL.md"
+done
+
+# 5 · always-loaded core stays lean (it is paid on every run, by every agent)
+# Characters, not bytes. `wc -c` counts bytes, and the chars/4 heuristic is about characters —
+# so every em-dash and every Cyrillic word in this corpus inflated the estimate. Measured
+# 2026-08-15: 37829 bytes against 37315 characters, ~129 phantom tokens, all of it in one
+# direction. A budget that reads its own file wrong is strict for a reason nobody chose.
+chars=$(python3 -c "import sys; print(len(open(sys.argv[1], encoding='utf-8').read()))" skills/mops/SKILL.md 2>/dev/null \
+        || wc -c < skills/mops/SKILL.md | tr -d ' ')
+tok=$((chars/4))
+[ "$tok" -gt 10000 ] && say_fail "skills/mops/SKILL.md ~${tok} tokens — over the 10k budget; move detail to a companion file"
+# The second warning fires on GROWTH, not on size. "Approaching the budget" was true at 9.0k and
+# will be true at every commit until someone cuts the core, and a warning that is always on names
+# nothing — it is read past, which is how the one that matters gets read past too. Measured
+# 2026-08-15: at ~9.3k every section of the core is an invariant, detail is already delegated by
+# pointer, and exactly one sentence of 142 appears in any companion — so there is nothing cheap
+# left to move, and the honest signal is not "it is large" but "it just got larger".
+if [ "$tok" -le 10000 ] && [ "$tok" -gt 8000 ]; then
+  last_tag=$(git describe --tags --abbrev=0 2>/dev/null || true)
+  if [ -n "$last_tag" ]; then
+    prev=$(git show "${last_tag}:skills/mops/SKILL.md" 2>/dev/null \
+           | python3 -c "import sys; print(len(sys.stdin.read()))" 2>/dev/null || echo 0)
+    prev_tok=$(( ${prev:-0} / 4 ))
+    if [ "${prev_tok:-0}" -gt 0 ] && [ "$tok" -gt "$prev_tok" ]; then
+      say_warn "skills/mops/SKILL.md grew ~${prev_tok} → ~${tok} tokens since ${last_tag} (budget 10000). \
+Every agent pays this on every run: either the new lines are invariants that belong in the always-loaded \
+core, or they are detail and belong in a companion"
+    fi
+  fi
+fi
+
+# 6 · every command in the table has a plugin file
+for c in $(grep -oE '^\| `/multica-team:[a-z-]+' COMMANDS.md | sed -E 's/^.*multica-ops://'); do
+  [ -f "skills/$c/SKILL.md" ] || say_fail "command /multica-team:$c has no skills/$c/SKILL.md"
+done
+
+# 6b · official checklist: at least three evaluations
+n=$(grep -cE '^## [0-9]+\. ' evals/README.md 2>/dev/null || true); n=${n:-0}
+[ "$n" -lt 3 ] && say_warn "evals/README.md has $n scenarios — the official checklist asks for 3+"
+
+# 6c · and the hand-kept copy of that number must agree with it. This is a REPEAT: the changelog
+#      already records "advertised 22 eval scenarios against a rubric that now holds 26", and it
+#      drifted again to 26-against-27 — published on the site, where one page said 26 and another
+#      said 27. Twice is the threshold everywhere here, and past it the repair is a form, not a
+#      third correction of the same number by hand. The rubric is the home; README and the
+#      runsheet are copies, and a copy that disagrees is the defect.
+rs=$(grep -cE '^[0-9]+[[:space:]]' evals/runsheet.tsv 2>/dev/null || true)
+[ "${rs:-0}" = "$n" ] || say_fail "evals/runsheet.tsv has ${rs:-0} rows against $n scenarios in \
+the rubric (evals/README.md) — the sheet has gone one behind twice before."
+# **Inverted on purpose.** Iterating over whatever a grep happened to find is a silent pass the
+# moment somebody rephrases: `**26** stratified…`, `26 scenarios, stratified`, `26 scenarios in
+# the rubric` — six realistic phrasings were all blind, and bolding a digit is ordinary drift.
+# So the canonical phrase is REQUIRED to be present with the right number, and its absence is
+# the failure. The same for COVERAGE.md, which is a third hand-kept copy and is published: it
+# was the page that disagreed with README on the site.
+for doc in README.md evals/COVERAGE.md; do
+  [ -f "$doc" ] || continue
+  grep -qE "(^|[^0-9])${n}( stratified)? (eval )?scenarios" "$doc" || say_fail "$doc does not \
+state the scenario count as \"$n … scenarios\" — the rubric (evals/README.md) holds $n, this is \
+a hand-kept copy, and it has drifted twice before. Write the number in that phrase."
+  wrong=$(grep -oE '(^|[^0-9])[0-9]+( stratified)? (eval )?scenarios' "$doc" \
+          | grep -oE '[0-9]+' | sort -u | grep -v "^${n}$" || true)
+  [ -n "$wrong" ] && while IFS= read -r w; do
+    say_fail "$doc also advertises $w scenarios; the rubric holds $n."
+  done <<< "$wrong"
+done
+
+# 7 · docs coverage — a new command with no use case is a doc gap, not a bug
+missing=""
+for c in $(grep -oE '^\| `/multica-team:[a-z-]+' COMMANDS.md | sed -E 's/^.*multica-ops://'); do
+  grep -q "/multica-team:$c" USE-CASES.md || missing="$missing /multica-team:$c"
+done
+[ -n "$missing" ] && say_warn "USE-CASES.md covers no situation for:$missing — add one or decide it's internal"
+
+# 8 · CLI drift — warn, never rewrite silently (a bumped pin with a stale §10 would be
+#     a false claim of currency, worse than visibly stale)
+if command -v multica >/dev/null 2>&1; then
+  lv=$(multica --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  # Same anchor as --regen-cli above, and for the same reason: `head -1` reads whichever
+  # version happens to appear first, which is a citation of someone else's release.
+  pv=$(grep -oE '\*\*v[0-9]+\.[0-9]+\.[0-9]+\*\* <!-- cli-pin -->' REFERENCE.md \
+       | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+  [ -n "$lv" ] && [ "$lv" != "$pv" ] && say_warn "installed CLI v$lv ≠ pinned v$pv — run: bash scripts/preflight.sh --regen-cli"
+fi
+
+# 9 · coherence — a new capability must be reachable from every entry point, or it is
+#     invisible in practice. Warn per missing surface rather than guessing intent.
+for c in $(grep -oE '^\| `/multica-team:[a-z-]+' COMMANDS.md | sed -E 's/^.*multica-ops://'); do
+  gaps=""
+  grep -q "/multica-team:$c" skills/mops/SKILL.md || gaps="$gaps SKILL"
+  grep -qE "(^|[^a-z-])$c([^a-z-]|$)" skills/mops/SKILL.md || gaps="$gaps the-dispatcher"
+  [ -n "$gaps" ] && say_warn "/multica-team:$c not reachable from:$gaps"
+done
+# the /join delta must cover every interview topic, or a joined workspace is asked less
+# than a new one — checked against BOOTSTRAP §16 rather than a hardcoded phrase.
+delta_bad=$(python3 - <<'PYEOF'
+import re
+boot = open("BOOTSTRAP.md").read()
+sec = re.search(r"## 16\. Interview checklist.*?\Z", boot, re.S)
+if not sec: raise SystemExit
+titles = re.findall(r"^\d+\. \*\*(.+?)\*\*", sec.group(0), re.M)
+flows = open("FLOWS.md").read().lower()
+missing = []
+for t in titles:
+    words = [w for w in re.sub(r"[^a-z ]", " ", t.lower()).split() if len(w) > 4]
+    if words and not any(w in flows for w in words):
+        missing.append(t[:38])
+if missing:
+    print("the /join delta in FLOWS.md never mentions: " + ", ".join(missing[:4]))
+PYEOF
+)
+[ -n "$delta_bad" ] && say_warn "$delta_bad"
+
+# 9b · recorded facts past their recheck are unknown, not fine — the skill's own freshness
+#      law turned on itself. Dates written as "checked/verified/re-verified YYYY-MM-DD"
+#      older than the window get a warning; warn-only, because staleness is a claim to
+#      re-verify, not proof of falsehood.
+fresh_bad=$(python3 - <<'PYEOF'
+import re, datetime, glob
+STALE_DAYS = 180
+today = datetime.date.today()
+old = []
+for f in glob.glob("*.md") + glob.glob("templates/*.md") + glob.glob("sources/*.md"):
+    for i, line in enumerate(open(f, encoding="utf-8"), 1):
+        # IGNORECASE, the word "measured", and an optional backtick — each was a hole a lens
+        # measured. Case was the worst: house style capitalises at a sentence start, so 33 of
+        # STACKS' 61 stamps were exempt and the exemption was the DEFAULT. The strongest claims
+        # in this corpus are the ones that say "measured <date>", and they aged unseen. The gate
+        # had never fired, because nothing is 180 days old yet, so green meant nothing about half
+        # the file and would first have admitted it in 2027.
+        # NOTE: the backtick is written \x60 on purpose — a literal one here can break the parse
+        # of the enclosing $( <<HEREDOC ). **This comment deliberately does not say why.** It used
+        # to, in the same breath as forbidding the restatement 490 lines below it — and its version
+        # was the second of the three accounts that shipped wrong. The check is the form:
+        # /bin/bash -n finds every case instantly, and the suite runs it as an assertion.
+        # Up to three words may sit between the verb and the date: this corpus writes
+        # "re-verified behaviourally 2026-08-01", "Measured end to end 2026-08-01" and
+        # "measured on this machine 2026-08-01" — 41 stamps escaped the first repair for
+        # exactly that reason, which is the same hole as the case-sensitivity one, in the
+        # house's dominant style. (?<!un) keeps "unverified"/"unchecked" from reading as
+        # verification, which would invert the meaning of the stamp.
+        for m in re.finditer(r"(?<!un)\b(?:checked|verified|re-verified|measured|re-measured)"
+                             r"(?:\W+\w+){0,3}?\W+(\d{4})-(\d{2})-(\d{2})", line, re.I):
+            try:
+                d = datetime.date(*map(int, m.groups()))
+            except ValueError:
+                # A single typo'd date used to raise here, and because every print happened
+                # after the loop, stdout came back empty and the whole gate went silent with
+                # genuinely stale facts in the file. Report it and keep going.
+                print(f"BAD:{f}:{i} ({m.group(0)!r} is not a date)")
+                continue
+            age = (today - d).days
+            if age > STALE_DAYS:
+                print(f"OLD:{f}:{i} ({d}, {age}d ago)")
+for o in old[:6]:
+    print(o)  # retained for older callers; the loop above prints directly
+if len(old) > 6:
+    print(f"…and {len(old)-6} more")
+PYEOF
+)
+[ -n "$fresh_bad" ] && while IFS= read -r l; do
+  say_warn "recorded fact past its recheck window: $l"
+done <<< "$fresh_bad"
+
+# 10 · reminders that cannot be verified from this repo
+git diff --cached --name-only 2>/dev/null | grep -qE '\.md$' && \
+  echo "  → docs site: regenerate + deploy (python3 scripts/generate.py <repo> in the ai repo)"
+
+[ $fail -eq 0 ] && [ $warn -eq 0 ] && echo "  ✓ all checks passed"
+[ $fail -eq 0 ] && [ $warn -eq 1 ] && echo "  ✓ passed with warnings"
+exit $fail

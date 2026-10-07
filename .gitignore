@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 todo.md
 binding.local.json
+.in_use/
+.DS_Store
+companies.json
+memory-binding.local.json

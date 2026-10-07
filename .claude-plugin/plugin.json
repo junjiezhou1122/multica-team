@@ -1,10 +1,10 @@
 {
   "name": "multica-team",
-  "version": "0.1.0",
-  "description": "Team memory, dreaming, and feedback workflows for Multica workspaces.",
+  "version": "0.2.0",
+  "description": "Company operations, team memory, dreaming, and feedback for Multica workspaces.",
   "author": {
     "name": "Multica Team contributors"
   },
   "repository": "https://github.com/junjiezhou1122/multica-team",
-  "license": "MIT"
+  "license": "MIT AND Apache-2.0"
 }

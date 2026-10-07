@@ -1,7 +1,7 @@
 {
   "name": "multica-team",
   "metadata": {
-    "description": "Team memory, dreaming, and feedback for Multica workspaces."
+    "description": "Company operations and shared memory for Multica workspaces."
   },
   "owner": {
     "name": "Multica Team contributors"
@@ -10,8 +10,8 @@
     {
       "name": "multica-team",
       "source": "./",
-      "description": "Shared memory workflows for Multica teams.",
-      "version": "0.1.0"
+      "description": "Company operations and shared memory workflows for Multica teams.",
+      "version": "0.2.0"
     }
   ]
 }
