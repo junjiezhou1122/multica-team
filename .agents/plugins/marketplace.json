@@ -1,0 +1,13 @@
+{
+  "name": "multica-team",
+  "metadata": {"description": "Company operations and shared memory for Multica workspaces."},
+  "owner": {"name": "Multica Team contributors"},
+  "plugins": [
+    {
+      "name": "multica-team",
+      "source": "./",
+      "description": "Company operations and shared memory workflows for Multica teams.",
+      "version": "0.3.0"
+    }
+  ]
+}

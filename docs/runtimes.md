@@ -9,7 +9,7 @@ These instructions select the client for your advisor console. Multica worker ru
 | Client | Package discovery | Explicit invocation | Four inherited hooks |
 |---|---|---|---|
 | Claude Code | `.claude-plugin/plugin.json` and marketplace | `/multica-team:mops` | Claude event adapters and regression tests |
-| Codex | Same marketplace and plugin metadata | `$mops`, or select the plugin skill in `/skills` | No adapted or verified Codex hooks |
+| Codex | `.codex-plugin/plugin.json` and `.agents/plugins/marketplace.json` | `$mops`, or select the plugin skill in `/skills` | No adapted or verified Codex hooks |
 | Pi | `package.json` with `pi.skills`, or `--skill` | `/skill:mops` | No Pi extension adapters |
 | Hermes | Root Agent Plugins v1 `plugin.json`, or a skill directory mount | Discover the qualified plugin skill with `skills_list` and load it with `skill_view`; directory mounts also expose `/mops` and `/skill mops` | No Hermes hook adapters |
 

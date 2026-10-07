@@ -17,7 +17,13 @@ if manifest.get('license') != 'MIT AND Apache-2.0':
     errors.append('Manifest must describe both component licenses')
 portable = json.loads((root / 'plugin.json').read_text())
 pi_package = json.loads((root / 'package.json').read_text())
-for package in (portable, pi_package):
+codex = json.loads((root / '.codex-plugin/plugin.json').read_text())
+codex_marketplace = json.loads((root / '.agents/plugins/marketplace.json').read_text())
+if codex_marketplace != marketplace:
+    errors.append('Codex and Claude marketplace catalogs must agree')
+if codex.get('skills') != ['./skills'] or codex.get('hooks') != []:
+    errors.append('Codex must explicitly load shared skills without Claude hook adapters')
+for package in (portable, pi_package, codex):
     for field in ('name', 'version', 'description', 'license'):
         if package.get(field) != manifest.get(field):
             errors.append(f'Runtime manifest {field} differs from Claude manifest')
@@ -26,10 +32,10 @@ if portable.get('$schema') != 'https://agent-plugins.org/schemas/1.0.0/plugin.sc
 if pi_package.get('pi') != {'skills': ['./skills'], 'extensions': [], 'prompts': [], 'themes': []}:
     errors.append('Pi must discover the canonical skills without executable adapters')
 for path in root.rglob('plugin.json'):
-    if '.git' not in path.parts and path not in (root / '.claude-plugin/plugin.json', root / 'plugin.json'):
+    if '.git' not in path.parts and path not in (root / '.claude-plugin/plugin.json', root / '.codex-plugin/plugin.json', root / 'plugin.json'):
         errors.append(f'{path.relative_to(root)}: nested plugin manifest')
 for path in root.rglob('marketplace.json'):
-    if '.git' not in path.parts and path != root / '.claude-plugin/marketplace.json':
+    if '.git' not in path.parts and path not in (root / '.claude-plugin/marketplace.json', root / '.agents/plugins/marketplace.json'):
         errors.append(f'{path.relative_to(root)}: nested marketplace')
 ops = root / 'operations'
 for name in ('LICENSE', 'LOCAL_COMPANIES.md', 'COMPANY_KNOWLEDGE.md'):

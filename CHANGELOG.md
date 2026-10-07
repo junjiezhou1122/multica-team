@@ -2,6 +2,8 @@
 
 ## 0.3.0
 
+Follow-up adds explicit Codex-native plugin and marketplace metadata, tests installation with compatibility manifests removed, and puts all four client installation routes directly in the README.
+
 Added native packaging and installation guidance for Codex, Pi, and Hermes alongside Claude Code. All clients discover the same 23 skills and retain the full supporting tree. Pi declares skills only; Hermes uses Agent Plugins v1 metadata. The existing four hooks remain Claude Code adapters.
 
 Replaced stale claims that other clients have no slash commands and removed Claude-only argument placeholders. Added runtime capability and collision guidance, coherent manifest checks, relocated package checks, isolated native discovery tests, and current Multica Team installation inventory including Pi local packages. Hermes portable manifest and discovery pass, while catalog security scanning still rejects inherited fixtures and examples. No model calls, automatic services, or grants are added.

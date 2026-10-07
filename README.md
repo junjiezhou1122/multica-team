@@ -8,14 +8,45 @@ Multica Team 0.3.0 provides **23 shared skills for Claude Code, Codex, Pi, and H
 
 Choose your client using the [runtime guide](docs/runtimes.md). It covers installation, invocation, collisions, and the capability matrix for all four clients. The commands below use Claude Code syntax. Codex uses `$mops` or `/skills`, Pi uses `/skill:mops`, and Hermes uses its discovered skill names.
 
-Register the marketplace and install the plugin in Claude Code:
+### Claude Code
 
 ```sh
 claude plugin marketplace add junjiezhou1122/multica-team
 claude plugin install multica-team@multica-team
 ```
 
-Reload plugins with `/reload-plugins`, or start a new session.
+Reload plugins with `/reload-plugins`, or start a new session. Invoke `/multica-team:mops`.
+
+### Codex
+
+```sh
+codex plugin marketplace add junjiezhou1122/multica-team
+codex plugin add multica-team@multica-team
+```
+
+Codex uses its native `.codex-plugin/plugin.json` and `.agents/plugins/marketplace.json`. Start a new session. Select the Multica Team skill in `/skills`, or invoke `$mops` with your request. Installation retains the complete skill and reference tree. The Codex manifest explicitly declares skills and no hooks; Claude hook adapters remain separate.
+
+### Pi
+
+```sh
+pi install git:github.com/junjiezhou1122/multica-team
+```
+
+Invoke `/skill:mops`. Pi reads the skills declared in the root `package.json`.
+
+### Hermes
+
+Clone this repository to a persistent directory. Add its `skills/` path to `skills.external_dirs` in your Hermes profile configuration, preserving existing entries:
+
+```yaml
+skills:
+  external_dirs:
+    - /absolute/path/to/multica-team/skills
+```
+
+Restart the session and invoke `/mops` or `/skill mops`. Keep the full checkout reachable. The [Hermes guide](docs/runtimes.md#hermes) explains supporting-file access and why native plugin installation remains pending its security scan.
+
+### Migrate the former Claude Code plugin
 
 If you previously installed `team-ops@multica-team`, uninstall it before updating to the unified plugin. This prevents duplicate operations hooks:
 

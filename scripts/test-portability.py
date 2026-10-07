@@ -51,7 +51,19 @@ with tempfile.TemporaryDirectory(prefix='multica-portability-') as scratch:
         assert installed['version'] == json.loads((package / 'plugin.json').read_text())['version']
         assert sorted(p.parent.name for p in (path / 'skills').glob('*/SKILL.md')) == EXPECTED
         run(['python3', str(path / 'scripts/check.py')])
-        print('PASS: Codex native install preserves all skills and supporting references')
+        native = temp / 'codex-native-only'
+        shutil.copytree(package, native)
+        shutil.rmtree(native / '.claude-plugin')
+        (native / 'plugin.json').unlink()
+        (temp / 'codex-native-home').mkdir()
+        env = dict(os.environ, CODEX_HOME=str(temp / 'codex-native-home'))
+        run(['codex', 'plugin', 'marketplace', 'add', str(native), '--json'], env=env)
+        result = json.loads(run(['codex', 'plugin', 'add', 'multica-team@multica-team', '--json'], env=env))
+        native_path = Path(result['installedPath'])
+        assert result['version'] == installed['version']
+        assert sorted(p.parent.name for p in (native_path / 'skills').glob('*/SKILL.md')) == EXPECTED
+        assert (native_path / 'SPEC.md').read_text() == (package / 'SPEC.md').read_text()
+        print('PASS: Codex native-only metadata installs without Claude or portable manifest fallback')
     else:
         print('SKIP: Codex is not installed')
 
@@ -83,7 +95,10 @@ console.log(JSON.stringify({names: result.skills.map(s => s.name).sort(), diagno
         python = Path(runtime[0])
         code = '''import json,sys
 from pathlib import Path
+import os
+probe_home = os.environ.pop("HERMES_PROBE_HOME")
 import hermes_bootstrap
+os.environ["HERMES_HOME"] = probe_home
 from hermes_cli.agent_plugins import load_agent_plugin
 package = load_agent_plugin(Path(sys.argv[1]), Path(sys.argv[2]))
 assert not package.diagnostics, package.diagnostics
@@ -92,12 +107,15 @@ print(json.dumps(sorted(skill.name for skill in package.skills)))'''
         hermes_home = temp / 'hermes'
         hermes_home.mkdir()
         (hermes_home / 'config.yaml').write_text('skills:\n  external_dirs:\n    - ' + json.dumps(str(package / 'skills')) + '\n')
-        env = dict(os.environ, HERMES_HOME=str(hermes_home), PYTHONPATH=str(hermes_root))
+        env = dict(os.environ, HERMES_PROBE_HOME=str(hermes_home), PYTHONPATH=str(hermes_root), HERMES_DISABLE_LAZY_INSTALLS='1')
         loaded = json.loads(run([str(python), '-c', code, str(package), str(temp / 'hermes-data')], env=env, cwd=temp))
         assert loaded == EXPECTED, loaded
         code = '''import json,sys
 from pathlib import Path
+import os
+probe_home = os.environ.pop("HERMES_PROBE_HOME")
 import hermes_bootstrap
+os.environ["HERMES_HOME"] = probe_home
 from tools.skills_tool import _skill_catalog, skill_view
 catalog = _skill_catalog()
 names = sorted(item['name'] for item in catalog)

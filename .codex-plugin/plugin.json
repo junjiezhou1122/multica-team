@@ -1,0 +1,10 @@
+{
+  "name": "multica-team",
+  "version": "0.3.0",
+  "description": "Company operations, team memory, dreaming, and feedback for Multica workspaces.",
+  "author": {"name": "Multica Team contributors"},
+  "repository": "https://github.com/junjiezhou1122/multica-team",
+  "license": "MIT AND Apache-2.0",
+  "skills": ["./skills"],
+  "hooks": []
+}
