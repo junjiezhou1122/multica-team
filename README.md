@@ -24,6 +24,8 @@ claude plugin install multica-team@multica-team
 
 This marketplace also includes our independently maintained [Team Ops component](plugins/team-ops/MAINTENANCE.md). Install it with `claude plugin install team-ops@multica-team`. Use `/team-ops:mops` and the other company commands. It discovers registered companies on invocation. Company registrations stay outside the repository. This component is Apache-2.0 and does not automatically follow the original project's updates.
 
+For a unified company workflow, register an existing entry and optionally set `memory_binding_path` to its memory binding in local operational configuration. Team Ops consults relevant bound knowledge at task intake. Its [company knowledge method](plugins/team-ops/COMPANY_KNOWLEDGE.md) uses decision drafts for grill-with-doc, records owner observations and validation in company operations, and proposes memory candidates at end-of-cycle retrospectives. Candidate saves and Dreaming remain explicit steps. Neither plugin expands grants or enables capture or schedules through this connection.
+
 The memory plugin exposes `/multica-team:setup`, `/multica-team:team-memory`, `/multica-team:dreaming`, and `/multica-team:feedback`. Other skill-capable agents can consume the `skills/` directories. No Devin plugin or CLI implementation is included.
 
 ## First workspace
@@ -79,7 +81,7 @@ Run the offline structural check:
 python3 scripts/check.py
 ```
 
-It checks plugin JSON, skill frontmatter, local documentation links, template bindings, and template memory links. It does not prove model compliance, factual correctness, access isolation, or absence of secrets.
+It checks plugin JSON, skill frontmatter, local documentation links, template bindings, and template memory links. Integration skill references must resolve within their own plugin roots. Run the offline company discovery smoke tests with `python3 -m unittest discover -s plugins/team-ops/scripts/tests -p test_company_discovery.py`; they exercise explicit selection, default errors, optional binding resolution, pointer conflicts, identity mismatches, and read-only behavior. It does not prove model compliance, factual correctness, access isolation, or absence of secrets.
 
 ## Status and origins
 

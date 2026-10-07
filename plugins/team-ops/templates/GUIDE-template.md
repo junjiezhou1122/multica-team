@@ -54,6 +54,8 @@ so nobody downstream mistakes it for a directive.
 budget cap and this guide's invariants are **proposed** to a human, never adjusted while
 you work under them.
 
+{{OPTIONAL BOUND MEMORY: Remove this paragraph if memory is not configured. Before task planning, use the installed Multica Team team-memory skill with memory_binding_path = {{runtime-accessible binding path}}, member ID = {{actual agent ID}}, and project ID = {{actual project ID or none}}. Cite applicable knowledge in the handoff. Follow the installed Team Ops company knowledge method for decisions, owner observations, and retrospectives. Resolve skill sources from this runtime's configured catalog; console plugin paths may be unavailable here.}}
+
 **Evidence over opinion:** research before inventing; cite sources; mark opinion as
 opinion. **And look here before you research** — `_ops/research/` already holds this project's
 discovery notes, usability sessions and persona runs, and `_ops/DECISIONS.md` holds what was

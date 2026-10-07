@@ -1232,6 +1232,9 @@ promise this whole system exists to refuse:
 | a choice, with a reason | **`_ops/DECISIONS.md`**, append-only |
 | a place to look, or a thing to use | the **register** — `_ops/TOOLING.md`, with its why |
 | not now | **`_ops/LATER.md`**, with a revisit trigger |
+| a reusable lesson or approved preference | the bound memory instance through [company knowledge](COMPANY_KNOWLEDGE.md) |
+
+For consequential decisions, owner observations, or an end-of-cycle retrospective, follow [company knowledge](COMPANY_KNOWLEDGE.md). Record investigations in operations and propose supported lessons separately.
 
 **And the harness's own agent memory is not a home.** Measured next door 2026-08-07 on the
 0.2.1 canary smoke: told *"remember this"*, **two runs of two wrote the owner's rule into the

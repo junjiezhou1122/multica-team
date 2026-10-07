@@ -28,7 +28,11 @@ if len(list((ops / 'skills').glob('*/SKILL.md'))) != 19:
     errors.append('Expected 19 team-ops skills')
 if 'LOCAL_COMPANIES.md' not in (ops / 'skills/mops/SKILL.md').read_text():
     errors.append('Missing team-ops company discovery pointer')
-for path in (ops / 'skills').glob('*/SKILL.md'):
+# Check component-owned integration references as well as skill bodies. Each
+# must resolve within its own installed plugin root.
+ops_references = list((ops / 'skills').glob('*/SKILL.md')) + [
+    ops / name for name in ('LOCAL_COMPANIES.md', 'COMPANY_KNOWLEDGE.md', 'README.md')]
+for path in ops_references:
     for target in re.findall(r'\[[^\]\n]+\]\(([^)]+)\)', path.read_text()):
         if target.startswith(('https://', 'http://', '#')):
             continue
@@ -46,6 +50,8 @@ for name in ('setup', 'team-memory', 'dreaming', 'feedback'):
     fields = dict(re.findall(r'^(name|description): (.+)$', match[1], re.M)) if match else {}
     if fields.get('name') != path.parent.name or not fields.get('description'):
         errors.append(f'{path.relative_to(root)}: invalid skill frontmatter')
+    if 'multica-integration.md#discover-a-company-binding' not in text:
+        errors.append(f'{path.relative_to(root)}: missing company binding discovery pointer')
 if {p.name for p in (root / 'skills').iterdir() if p.is_dir()} != {'setup', 'team-memory', 'dreaming', 'feedback'}:
     errors.append('Expected four skills')
 
@@ -85,6 +91,15 @@ if binding['feedback'].get('issue_grant') is not None:
     errors.append('Example issue grant must remain null')
 if binding['memory']['push_authorized'] or binding['feedback']['pr_authorized']:
     errors.append('Example must not grant remote publication')
+
+# Memory skill references must survive installation apart from Team Ops.
+for path in (root / 'skills').glob('*/SKILL.md'):
+    for target in re.findall(r'\[[^\]\n]+\]\(([^)]+)\)', path.read_text()):
+        if target.startswith(('https://', 'http://', '#')):
+            continue
+        resolved = (path.parent / target.split('#')[0]).resolve()
+        if resolved.is_relative_to(ops):
+            errors.append(f'{path.relative_to(root)}: cross-plugin filesystem pointer {target}')
 
 if errors:
     print('\n'.join(errors), file=sys.stderr)
