@@ -4,4 +4,4 @@ description: "The go-live step, whatever live means here: gates green, release n
 ---
 
 Load and follow the [Mops skill](../mops/SKILL.md), executing
-its `/multica-team:ship` flow. The go-live step, whatever 'live' means: deploy code, launch a batch, publish an episode. Gates green → release → notes → tag → announce (outward → owner-confirmed); writes the cost/effort ledger; marks shipped in ROADMAP. Args: $ARGUMENTS
+its `/multica-team:ship` flow. The go-live step, whatever 'live' means: deploy code, launch a batch, publish an episode. Gates green → release → notes → tag → announce (outward → owner-confirmed); writes the cost/effort ledger; marks shipped in ROADMAP. Use the invocation arguments and accompanying user message as the request.

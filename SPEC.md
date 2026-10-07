@@ -4,7 +4,7 @@ This specification is for agents and maintainers of Multica Team memory instance
 
 ## Package and procedure routing
 
-Version 0.2.0 ships one `multica-team` plugin with 23 skills under `/multica-team:*`. Company operations references live in `operations/`; canonical memory semantics remain in this specification and the four memory skills. Follow [company binding discovery](docs/multica-integration.md#discover-a-company-binding) before memory access. The machine-local registry path remains `~/.config/multica-ops/companies.json`; packaging grants no new authority.
+Version 0.3.0 ships 23 shared skills for Claude Code, Codex, Pi, and Hermes. Follow [runtime installation and invocation](docs/runtimes.md); `/multica-team:*` examples use Claude Code syntax. Company operations references live in `operations/`; canonical memory semantics remain in this specification and the four memory skills. Follow [company binding discovery](docs/multica-integration.md#discover-a-company-binding) before memory access. The machine-local registry path remains `~/.config/multica-ops/companies.json`; packaging grants no new authority.
 
 ## Storage and identity
 

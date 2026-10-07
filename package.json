@@ -1,0 +1,14 @@
+{
+  "name": "multica-team",
+  "version": "0.3.0",
+  "description": "Company operations, team memory, dreaming, and feedback for Multica workspaces.",
+  "license": "MIT AND Apache-2.0",
+  "private": true,
+  "keywords": ["pi-package"],
+  "pi": {
+    "skills": ["./skills"],
+    "extensions": [],
+    "prompts": [],
+    "themes": []
+  }
+}

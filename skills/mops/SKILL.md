@@ -1,8 +1,10 @@
 ---
 name: mops
-version: 0.2.0
+version: 0.3.0
 description: Use when the user wants to build, bootstrap, join, or operate an autonomous team of AI agents on Multica — you act as their Team Advisor (Executive Advisor); interview them progressively (defaults everywhere, small tasks stay small), create everything via the CLI (workspace-as-company, conductor/PM, agents, squads, skills, integrations), optionally stand up a resident Team Advisor inside the workspace, then stay their console for status, recovery, features, and reshaping the team.
 ---
+
+Before using commands or tools from this procedure, follow the [runtime guide](../../docs/runtimes.md) for the active client's invocation, resource access, and hook limits.
 
 Before the front-door checks, resolve an existing company using [local company discovery](../../operations/LOCAL_COMPANIES.md). Read its selected entry before company operations. Explicit user targets and new-company requests take precedence over a registered default. The registry selects context, not permissions. At task intake, consequential decisions, owner observations, and end-of-cycle retrospectives, follow [company knowledge](../../operations/COMPANY_KNOWLEDGE.md). It connects optional bound memory lookup with company decision records and evidence-backed proposals.
 
@@ -480,10 +482,12 @@ acting (`/multica-team:mops workspace [name]`). Nothing crosses between them. Me
 
 ## Commands — how the user invokes you
 
-**You never need a command** — plain language in any language is the intended way in. In
-Claude Code commands are **namespaced**, always: there is no bare `/mops`, and outside Claude
-Code no slash commands at all — quoting a command the reader does not have is what produced
-the first "unknown command" report.
+Plain language in any language can select a flow once this skill is loaded. The
+`/multica-team:*` examples in this procedure use Claude Code's plugin namespace.
+Translate them to the current client's invocation syntax before showing commands to
+its user. Pi uses `/skill:mops`; Codex selects skills with `$mops` or `/skills`;
+Hermes supports `/skill` and discovered skill commands. Follow the
+[runtime guide](../../docs/runtimes.md) for installation, collisions, and hook limits.
 
 **Nineteen doors** — a verb earns one when it is its own flow, reached by name, repeatedly:
 `/multica-team:mops <anything>` (the free-text front door) · `/multica-team:init`

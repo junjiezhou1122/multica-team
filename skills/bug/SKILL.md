@@ -4,4 +4,4 @@ description: The urgent lane that jumps the queue — a defect, recall or correc
 ---
 
 Load and follow the [Mops skill](../mops/SKILL.md), executing
-its `/multica-team:bug` flow. Urgent lane that jumps the roadmap: a defect, recall, or correction — minimal spec → straight to Build + Review, owner notified; not ICE-prioritized. Args: $ARGUMENTS
+its `/multica-team:bug` flow. Urgent lane that jumps the roadmap: a defect, recall, or correction — minimal spec → straight to Build + Review, owner notified; not ICE-prioritized. Use the invocation arguments and accompanying user message as the request.

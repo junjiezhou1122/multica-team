@@ -3,6 +3,8 @@ name: dreaming
 description: Consolidate a Multica team's existing memory using specified task evidence. Use when explicitly asked to dream, reconcile notes, or review memory quality; produces local commits and separate method proposals, without scheduling itself.
 ---
 
+Follow the [runtime guide](../../docs/runtimes.md) for client invocation, tool equivalents, and hook limits.
+
 # Dream over team knowledge
 
 1. Follow [company binding discovery](../../docs/multica-integration.md#discover-a-company-binding), then resolve the instance and maintainer role through [team-memory](../team-memory/SKILL.md). Read [the operation definitions](../../SPEC.md). Run only when invoked or under a separately authorized schedule. An invocation permits a bounded local memory edit; remote pushes still require the instance grant. Check `dreaming.agent_ids` for shared-memory dreaming capability. If the caller is neither the configured maintainer nor a listed dreamer, restrict direct edits to its member folder and submit shared changes as candidates. The caller's job title does not establish a capability.

@@ -3,6 +3,8 @@ name: setup
 description: Set up or inspect a Multica workspace memory instance and its local binding. Use when onboarding an existing team to Multica Team; does not start task runs or enable automatic capture.
 ---
 
+Follow the [runtime guide](../../docs/runtimes.md) for client invocation, tool equivalents, and hook limits.
+
 # Set up workspace memory
 
 1. Follow [company binding discovery](../../docs/multica-integration.md#discover-a-company-binding) to find an existing instance before preparing one. Resolve the target Multica server and full workspace UUID from the user or an existing binding. Inspect live CLI help and read workspace/project/agent state using explicit `--workspace-id`. If the user selects another company, respect that selection. Stop on ambiguous identity rather than using a switchable CLI default.

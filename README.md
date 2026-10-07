@@ -2,9 +2,11 @@
 
 Run an AI team on Multica, keep shared knowledge, and improve how the team works. One plugin connects company operations, evidence-backed decisions, team memory, Dreaming, and feedback.
 
-Multica Team 0.2.0 provides **23 skills under `/multica-team:*`**. You direct the team through the company advisor. Members consult relevant knowledge, work within the company's permissions, and propose reusable lessons after a task.
+Multica Team 0.3.0 provides **23 shared skills for Claude Code, Codex, Pi, and Hermes**. You direct the team through the company advisor. Members consult relevant knowledge, work within the company's permissions, and propose reusable lessons after a task.
 
 ## Install
+
+Choose your client using the [runtime guide](docs/runtimes.md). It covers installation, invocation, collisions, and the capability matrix for all four clients. The commands below use Claude Code syntax. Codex uses `$mops` or `/skills`, Pi uses `/skill:mops`, and Hermes uses its discovered skill names.
 
 Register the marketplace and install the plugin in Claude Code:
 
@@ -22,7 +24,7 @@ claude plugin uninstall team-ops@multica-team --keep-data
 claude plugin update multica-team@multica-team
 ```
 
-Installation adds skills and hooks to your console. Creating Multica members and attaching worker skills are separate operations. The plugin does not start a company or enable automatic capture during installation.
+Installation adds skills to your console. Claude Code also loads the four inherited hooks. Codex, Pi, and Hermes currently use explicit skill workflows without adapted hooks. Creating Multica members and attaching worker skills are separate operations. The plugin does not start a company or enable automatic capture during installation.
 
 ## Start with your team
 
@@ -144,7 +146,7 @@ templates/       Memory instance and binding templates
 scripts/         Package validation
 ```
 
-The root plugin loads hooks for `SessionStart`, `PreToolUse`, and `PostToolUse`. Read [hook behavior](operations/SECURITY.md#what-this-is-mechanically) before changing their scope. These checks do not provide filesystem isolation or guarantee agent compliance.
+Claude Code loads the root hooks for `SessionStart`, `PreToolUse`, and `PostToolUse`. Read [hook behavior](operations/SECURITY.md#what-this-is-mechanically) before changing their scope. These checks do not provide filesystem isolation or guarantee agent compliance.
 
 ## Verify changes
 
@@ -152,12 +154,13 @@ Run the package check and company discovery tests:
 
 ```sh
 python3 scripts/check.py
+python3 scripts/test-portability.py
 python3 -m unittest discover -s operations/scripts/tests -p test_company_discovery.py
 ```
 
-The package check verifies the single manifest, all 23 skill bodies, maintained references, hooks, licenses, example binding, and template memory links. CI also runs regression suites for the inherited hooks. The [instance validation procedure](docs/instance-validation.md) separately checks an actual memory repository.
+The package check verifies coherent runtime manifests, all 23 shared skill bodies, maintained references, Claude hooks, licenses, example binding, and template memory links. The portability suite tests installed native clients offline in temporary configuration directories and reports missing clients as skipped. CI also runs regression suites for the inherited hooks. The [instance validation procedure](docs/instance-validation.md) separately checks an actual memory repository.
 
-Passing structural and routing tests does not establish factual correctness, model compliance, secret absence, or remote-worker access. Version 0.2.0 has package, routing, and hook validation. Full live agent evaluation of the unified workflow remains pending. There is no database, automatic scheduler, or native Multica memory service in this version.
+Passing structural and routing tests does not establish factual correctness, model compliance, secret absence, or remote-worker access. Version 0.3.0 has package, routing, native skill discovery, and Claude hook validation. Hermes catalog admission still fails its repository-wide scanner on inherited fixtures and examples; see the runtime guide. Full live agent evaluation of the unified workflow remains pending. There is no database, automatic scheduler, or native Multica memory service in this version.
 
 ## Origins and licenses
 

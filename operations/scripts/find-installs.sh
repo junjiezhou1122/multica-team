@@ -19,7 +19,7 @@
 set -uo pipefail
 
 HOME_DIR="${HOME}"
-NAME="multica-ops"
+NAME="multica-team"
 
 # The version the machine should be on: the newest any install carries. Computed in pass one,
 # compared in pass two — the source checkout, when present, is just another row.
@@ -225,9 +225,25 @@ fi
 # outlives the directory it points at, which is how a cleanup elsewhere silently unplugs it.
 hcfg="$HOME_DIR/.hermes/config.yaml"
 if [ -f "$hcfg" ]; then
-  grep -E '^[[:space:]]*-[[:space:]]+/' "$hcfg" | sed -E 's/^[[:space:]]*-[[:space:]]+//' | while read -r p; do
-    case "$p" in *"$NAME"*) echo "$p" ;; *) ;; esac
-  done > /tmp/.find-installs-h.$$ || true
+  /usr/bin/python3 - "$hcfg" "$NAME" <<'PY' > /tmp/.find-installs-h.$$
+import json, re, sys
+from pathlib import Path
+for line in Path(sys.argv[1]).read_text().splitlines():
+    match = re.match(r'^\s*-\s+([\'\"]?)(/.*?)\1\s*$', line)
+    if not match:
+        continue
+    path = Path(match[2])
+    for root in (path, path.parent):
+        try:
+            if json.loads((root / 'plugin.json').read_text()).get('name') == sys.argv[2]:
+                print(path)
+                break
+        except (OSError, ValueError):
+            pass
+    else:
+        if sys.argv[2] in str(path):
+            print(path)
+PY
   while read -r p; do
     if [ -d "$p" ]; then
       v=$(read_version "$(dirname "$p")")
@@ -240,9 +256,36 @@ if [ -f "$hcfg" ]; then
   rm -f /tmp/.find-installs-h.$$
 fi
 
+pcfg="$HOME_DIR/.pi/agent/settings.json"
+if [ -f "$pcfg" ]; then
+  /usr/bin/python3 - "$pcfg" "$NAME" <<'PY' > /tmp/.find-installs-p.$$
+import json, sys
+from pathlib import Path
+settings = Path(sys.argv[1])
+for item in json.loads(settings.read_text()).get('packages', []):
+    source = item.get('source', '') if isinstance(item, dict) else item
+    if not isinstance(source, str) or source.startswith(('npm:', 'git:', 'https:', 'ssh:')):
+        continue
+    path = (settings.parent / source).resolve()
+    try:
+        if json.loads((path / 'package.json').read_text()).get('name') == sys.argv[2]:
+            print(path)
+    except (OSError, ValueError):
+        if sys.argv[2] in source:
+            print(path)
+PY
+  while IFS= read -r p; do
+    seen "$p" && continue
+    flag=""
+    [ -d "$p" ] || flag="BROKEN — Pi package path does not exist"
+    add "$p" "package, Pi" "update its local checkout; Pi loads this path without copying" "$flag" "$(read_version "$p")"
+  done < /tmp/.find-installs-p.$$
+  rm -f /tmp/.find-installs-p.$$
+fi
+
 # ---- pass two: directories and symlinks named after the skill, wherever harnesses keep them ----
 
-scan_roots="$HOME_DIR/.agents $HOME_DIR/.claude/skills $HOME_DIR/.openclaw $HOME_DIR/.opencode $HOME_DIR/.cursor $HOME_DIR/.kimi $HOME_DIR/.pi $HOME_DIR/.factory $HOME_DIR/.copilot $HOME_DIR/.skills-manager $HOME_DIR/.config"
+scan_roots="$HOME_DIR/.agents $HOME_DIR/.claude/skills $HOME_DIR/.hermes/plugins $HOME_DIR/.hermes/skills $HOME_DIR/.openclaw $HOME_DIR/.opencode $HOME_DIR/.cursor $HOME_DIR/.kimi $HOME_DIR/.pi $HOME_DIR/.factory $HOME_DIR/.copilot $HOME_DIR/.skills-manager $HOME_DIR/.config"
 for extra in "$@"; do scan_roots="$scan_roots $extra"; done
 
 for root in $scan_roots; do

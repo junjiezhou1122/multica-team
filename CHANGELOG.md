@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+Added native packaging and installation guidance for Codex, Pi, and Hermes alongside Claude Code. All clients discover the same 23 skills and retain the full supporting tree. Pi declares skills only; Hermes uses Agent Plugins v1 metadata. The existing four hooks remain Claude Code adapters.
+
+Replaced stale claims that other clients have no slash commands and removed Claude-only argument placeholders. Added runtime capability and collision guidance, coherent manifest checks, relocated package checks, isolated native discovery tests, and current Multica Team installation inventory including Pi local packages. Hermes portable manifest and discovery pass, while catalog security scanning still rejects inherited fixtures and examples. No model calls, automatic services, or grants are added.
+
 ## 0.2.0
 
 Consolidated company operations and memory into one `multica-team` plugin with 23 root skills and the unified `/multica-team:*` namespace. Operations documents, templates, scripts, and Apache-2.0 attribution remain under `operations/`; inherited hooks are discovered from root `hooks/hooks.json`. Removed nested plugin manifests and the separate marketplace entry.

@@ -11,6 +11,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: python3 scripts/check.py
+      - run: python3 scripts/test-portability.py
+      - run: bash operations/scripts/test-find-installs.sh
       - run: python3 -m unittest discover -s operations/scripts/tests -p test_company_discovery.py
       - run: bash operations/scripts/test-migration-hook.sh
       - run: bash operations/scripts/test-rule-home.sh

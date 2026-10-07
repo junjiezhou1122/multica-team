@@ -14,4 +14,4 @@ conversation, so the default is **Team Advisor** but any addressee answers under
 (answers from its own craft), an **expert** (its own voice and sources), or the **theatre**
 (personas react — direction-only, 🎭-marked, registered nowhere — but a consulted validated twin
 still logs its own use per its consent contract, MODULES → Persona theatre). Route to the **one**
-addressee, no fan-out. Args: $ARGUMENTS
+addressee, no fan-out. Use the invocation arguments and accompanying user message as the request.

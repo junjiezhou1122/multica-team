@@ -640,9 +640,11 @@ file in the owner's global config that this skill then had to explain and defend
 nothing plain language does not already give. **Anyone still carrying it can delete it** —
 `rm ~/.claude/commands/mops.md` — and nothing here depends on it.
 
-**Outside Claude Code there are no slash commands at all.** Cursor, Codex, Windsurf and the
-rest reach every flow through plain language, and so does the plain word: *"mops, status"*
-works everywhere, which is why no flow is ever only reachable by a command.
+Other clients have their own skill commands. Pi uses `/skill:mops`, Codex selects
+`$mops` or the `/skills` picker, and Hermes supports `/skill` and discovered skill
+commands. Translate the Claude Code examples above for the current client using the
+[runtime guide](../docs/runtimes.md). Plain language can request the same flows after
+the client loads the skill.
 
 ## 16. Interview checklist (detail)
 

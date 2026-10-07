@@ -11,12 +11,22 @@ marketplace = json.loads((root / '.claude-plugin/marketplace.json').read_text())
 entries = marketplace['plugins']
 if len(entries) != 1 or entries[0].get('name') != 'multica-team' or entries[0].get('source') != './':
     errors.append('Expected one multica-team marketplace entry at the root')
-if manifest.get('name') != 'multica-team' or manifest.get('version') != '0.2.0' or any(entry.get('version') != manifest.get('version') for entry in entries):
+if manifest.get('name') != 'multica-team' or manifest.get('version') != '0.3.0' or any(entry.get('version') != manifest.get('version') for entry in entries):
     errors.append('Root plugin and marketplace identity/version mismatch')
 if manifest.get('license') != 'MIT AND Apache-2.0':
     errors.append('Manifest must describe both component licenses')
+portable = json.loads((root / 'plugin.json').read_text())
+pi_package = json.loads((root / 'package.json').read_text())
+for package in (portable, pi_package):
+    for field in ('name', 'version', 'description', 'license'):
+        if package.get(field) != manifest.get(field):
+            errors.append(f'Runtime manifest {field} differs from Claude manifest')
+if portable.get('$schema') != 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json':
+    errors.append('Hermes requires Agent Plugins v1 schema')
+if pi_package.get('pi') != {'skills': ['./skills'], 'extensions': [], 'prompts': [], 'themes': []}:
+    errors.append('Pi must discover the canonical skills without executable adapters')
 for path in root.rglob('plugin.json'):
-    if '.git' not in path.parts and path != root / '.claude-plugin/plugin.json':
+    if '.git' not in path.parts and path not in (root / '.claude-plugin/plugin.json', root / 'plugin.json'):
         errors.append(f'{path.relative_to(root)}: nested plugin manifest')
 for path in root.rglob('marketplace.json'):
     if '.git' not in path.parts and path != root / '.claude-plugin/marketplace.json':
@@ -42,11 +52,17 @@ for name in sorted(expected_skills):
         errors.append(f'{path.relative_to(root)}: invalid skill frontmatter')
     if '/team-ops:' in text:
         errors.append(f'{path.relative_to(root)}: obsolete command namespace')
+    if '$ARGUMENTS' in text:
+        errors.append(f'{path.relative_to(root)}: use the actual user request, not a runtime placeholder')
+    if len(fields.get('description', '')) > 1024:
+        errors.append(f'{path.relative_to(root)}: description exceeds Agent Skills limit')
+    if name in memory_skills | {'mops'} and '../../docs/runtimes.md' not in text:
+        errors.append(f'{path.relative_to(root)}: missing runtime adaptation pointer')
     if name in memory_skills and 'multica-integration.md#discover-a-company-binding' not in text:
         errors.append(f'{path.relative_to(root)}: missing company binding discovery pointer')
     if name in operation_skills - {'mops'} and '(../mops/SKILL.md)' not in text:
         errors.append(f'{path.relative_to(root)}: missing Mops procedure link')
-    if name == 'mops' and ('../../operations/LOCAL_COMPANIES.md' not in text or 'version: 0.2.0' not in text):
+    if name == 'mops' and ('../../operations/LOCAL_COMPANIES.md' not in text or f'version: {manifest["version"]}' not in text):
         errors.append('Mops must point to relocated discovery and match package version')
 
 # Validate every skill plus package-owned integration documents. Inherited
@@ -113,4 +129,4 @@ if binding['memory']['push_authorized'] or binding['feedback']['pr_authorized']:
 if errors:
     print('\n'.join(errors), file=sys.stderr)
     raise SystemExit(1)
-print('PASS: one plugin, 23 skills, installed references, four root hooks, licenses, memory links, and example binding')
+print('PASS: coherent runtime manifests, 23 shared skills, installed references, four Claude hooks, licenses, memory links, and example binding')
