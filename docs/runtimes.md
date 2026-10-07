@@ -17,6 +17,14 @@ All clients can follow the skill procedures and run the supporting scripts throu
 
 The `/multica-team:*` strings in inherited procedures identify flows using Claude syntax. Translate them for the active client. Treat invocation arguments and the user's accompanying message as the request. If a client leaves `$ARGUMENTS` literally in a skill body, it is a placeholder, not a command or environment variable to evaluate. Use the actual user request instead. Use the client's available tools for reading files, shell commands, questions, and delegation. Missing tools are a capability gap; they do not grant permission to install software or launch another agent service.
 
+## Pending automatic hook adapters
+
+Codex, Pi, and Hermes currently support the skill workflows, but do not automatically run Multica Team's four inherited hooks. Their installation and skill-loading checks are not evidence of hook support. These adapters are deferred; this describes the current Multica Team implementation, not a permanent limitation of those clients.
+
+The missing automatic behaviors are the session-start migration check, the outward-command gate, the rule-placement check on file edits, and the dispatch reminder after tool use. Follow the company guide and verify permissions explicitly when using these clients. Their own approval and sandbox mechanisms remain governed by their client configuration.
+
+Future adapters must map each client's events, tool inputs, session identity, blocking results, and context messages. Test both allowed and refused operations in an isolated environment before marking an adapter supported. Until then, retain the skills-only capability labels above.
+
 ## Claude Code
 
 ```sh
