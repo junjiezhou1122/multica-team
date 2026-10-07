@@ -22,7 +22,9 @@ claude plugin marketplace add junjiezhou1122/multica-team
 claude plugin install multica-team@multica-team
 ```
 
-The plugin exposes `/multica-team:setup`, `/multica-team:team-memory`, `/multica-team:dreaming`, and `/multica-team:feedback`. Other skill-capable agents can consume the `skills/` directories. No Devin plugin or CLI implementation is included.
+This marketplace also includes our independently maintained [Team Ops component](plugins/team-ops/MAINTENANCE.md). Install it with `claude plugin install team-ops@multica-team`. Use `/team-ops:mops` and the other company commands. It discovers registered companies on invocation. Company registrations stay outside the repository. This component is Apache-2.0 and does not automatically follow the original project's updates.
+
+The memory plugin exposes `/multica-team:setup`, `/multica-team:team-memory`, `/multica-team:dreaming`, and `/multica-team:feedback`. Other skill-capable agents can consume the `skills/` directories. No Devin plugin or CLI implementation is included.
 
 ## First workspace
 

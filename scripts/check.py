@@ -8,10 +8,33 @@ root = Path(__file__).resolve().parents[1]
 errors = []
 manifest = json.loads((root / '.claude-plugin/plugin.json').read_text())
 marketplace = json.loads((root / '.claude-plugin/marketplace.json').read_text())
-if manifest['name'] != 'multica-team' or marketplace['plugins'][0]['name'] != manifest['name']:
-    errors.append('Plugin and marketplace names disagree')
-if marketplace['plugins'][0]['version'] != manifest['version']:
-    errors.append('Plugin and marketplace versions disagree')
+entries = {entry['name']: entry for entry in marketplace['plugins']}
+if set(entries) != {'multica-team', 'team-ops'} or manifest['name'] != 'multica-team':
+    errors.append('Expected memory and team-ops marketplace entries')
+for name, relative in (('multica-team', '.'), ('team-ops', 'plugins/team-ops')):
+    component = root / relative
+    data = json.loads((component / '.claude-plugin/plugin.json').read_text())
+    entry = entries.get(name, {})
+    if data['name'] != name or entry.get('version') != data['version'] or entry.get('source') != ('./' if relative == '.' else './' + relative):
+        errors.append(f'{name}: marketplace identity, version or source mismatch')
+ops = root / 'plugins/team-ops'
+if not (ops / 'LICENSE').is_file() or not (ops / 'LOCAL_COMPANIES.md').is_file():
+    errors.append('Missing team-ops license or company discovery reference')
+for path in (ops / 'skills').glob('*/SKILL.md'):
+    text = path.read_text()
+    if not text.startswith('---\n') or not re.search(r'^name: .+$', text, re.M) or not re.search(r'^description: .+$', text, re.M):
+        errors.append(f'{path.relative_to(root)}: invalid skill frontmatter')
+if len(list((ops / 'skills').glob('*/SKILL.md'))) != 19:
+    errors.append('Expected 19 team-ops skills')
+if 'LOCAL_COMPANIES.md' not in (ops / 'skills/mops/SKILL.md').read_text():
+    errors.append('Missing team-ops company discovery pointer')
+for path in (ops / 'skills').glob('*/SKILL.md'):
+    for target in re.findall(r'\[[^\]\n]+\]\(([^)]+)\)', path.read_text()):
+        if target.startswith(('https://', 'http://', '#')):
+            continue
+        resolved = (path.parent / target.split('#')[0]).resolve()
+        if not resolved.is_relative_to(ops) or not resolved.exists():
+            errors.append(f'{path.relative_to(root)}: broken component reference {target}')
 
 for name in ('setup', 'team-memory', 'dreaming', 'feedback'):
     path = root / 'skills' / name / 'SKILL.md'
@@ -27,7 +50,7 @@ if {p.name for p in (root / 'skills').iterdir() if p.is_dir()} != {'setup', 'tea
     errors.append('Expected four skills')
 
 for path in root.rglob('*.md'):
-    if '.git' in path.parts:
+    if '.git' in path.parts or path.is_relative_to(root / 'plugins'):
         continue
     for target in re.findall(r'(?<!!)\[[^\]\n]+\]\(([^)]+)\)', path.read_text()):
         if target.startswith(('https://', 'http://', '#', 'mailto:')):
@@ -66,4 +89,4 @@ if binding['memory']['push_authorized'] or binding['feedback']['pr_authorized']:
 if errors:
     print('\n'.join(errors), file=sys.stderr)
     raise SystemExit(1)
-print('PASS: plugin manifests, four skills, documentation links, memory links, and example binding')
+print('PASS: two marketplace plugins, 4 memory skills, 19 operations skills, references, memory links, and example binding')

@@ -1,0 +1,346 @@
+#!/usr/bin/env python3
+"""Structural integrity of the docs. Every check here exists because the defect it
+looks for actually shipped once — see the 2.1.0 entry. Prints FAIL:/WARN: lines
+for preflight to render; deterministic classes fail, heuristic ones warn."""
+import datetime, glob, json, os, re, shutil, subprocess, sys
+
+DOCS = sorted(set(glob.glob("*.md")) | set(glob.glob("templates/*.md")) | set(glob.glob("evals/*.md")))
+out = []
+def fail(m): out.append("FAIL:" + m)
+def warn(m): out.append("WARN:" + m)
+
+def strip_code(t):
+    return re.sub(r"```.*?```", "", t, flags=re.S)
+
+def cells(line):
+    """Pipe count that ignores escaped pipes and pipes inside inline code —
+    `/upgrade [skill\\|all]` is one cell, not two."""
+    l = re.sub(r"`[^`]*`", "`", line).replace(r"\|", "")
+    return l.count("|")
+
+for f in DOCS:
+    t = open(f, encoding="utf-8").read()
+    lines = t.split("\n")
+    body = strip_code(t)
+
+    # a · a markdown table row must have the column count its header declares.
+    # Fifteen STACKS rows silently lost their free-tier column this way.
+    cols, in_tbl = None, False
+    for i, l in enumerate(lines, 1):
+        s = l.strip()
+        if not s.startswith("|"):
+            cols, in_tbl = None, False
+            continue
+        if re.match(r"^\|[\s\-:|]+\|$", s):
+            cols = cells(lines[i - 2]) if i >= 2 else None
+            in_tbl = True
+            continue
+        if in_tbl and cols and cells(l) != cols:
+            fail(f"{f}:{i} table row has {cells(l)-1} cells, header declares {cols-1}")
+
+    # b · a list item's continuation must stay indented, or it falls out of the list.
+    in_list = False
+    for i, l in enumerate(lines, 1):
+        if re.match(r"^\s*([-*]|\d+\.) ", l):
+            in_list = True
+            continue
+        if in_list:
+            if not l.strip() or l.lstrip().startswith(("|", ">", "```", "#")):
+                in_list = False
+            elif not l.startswith("  "):
+                fail(f"{f}:{i} list continuation lost its indent — renders as a stray paragraph")
+                in_list = False
+
+    # b2 · a heading swallowed by the sentence above it. An insert that replaces part of a
+    # block and leaves the rest is the signature defect of repeated rewriting, and it hides
+    # from the Contents check because the heading no longer exists on either side.
+    for i, l in enumerate(lines, 1):
+        if re.search(r"[a-z,)]\d+\.\s+[A-Z]", l) and not l.lstrip().startswith(("|", ">", "-", "#")):
+            fail(f"{f}:{i} looks like a heading absorbed into prose — '{l.strip()[:60]}'")
+
+    # b3 · section numbers must be contiguous: a missing §N means one was eaten or dropped.
+    nums = [int(m.group(1)) for m in re.finditer(r"^## (\d+)\.", t, re.M)]
+    if nums and nums != list(range(nums[0], nums[0] + len(nums))):
+        missing = sorted(set(range(nums[0], nums[-1] + 1)) - set(nums))
+        if missing:
+            fail(f"{f}: section numbering skips {missing} — a heading was lost")
+
+    # c · a line ending in a hyphen is a word a reflow tool broke in half.
+    for i, l in enumerate(lines, 1):
+        if re.search(r"[a-z]-$", l):
+            fail(f"{f}:{i} line ends mid-word on a hyphen")
+
+    # d · "Three loops:" must be followed by three of them.
+    words = dict(one=1, two=2, three=3, four=4, five=5, six=6, seven=7, eight=8)
+    for i, l in enumerate(lines, 1):
+        m = re.search(r"\b(one|two|three|four|five|six|seven|eight|\d+)\s+(?:\w+\s+){0,2}"
+                      r"(loops?|kinds?|rules?|blocks?|passes|things?|levers?|guardrails?|"
+                      r"options?|origins?|shapes?|questions?|steps?)\b[^.]*:\s*$", l, re.I)
+        if not m:
+            continue
+        want = words.get(m.group(1).lower(), None) or (int(m.group(1)) if m.group(1).isdigit() else None)
+        if not want:
+            continue
+        got, j = 0, i
+        # An intro that is itself inside a list item can only introduce items NESTED under it.
+        # Sibling bullets at the same or a shallower indent belong to the outer list and were
+        # never its count — measured next door 2026-09-10, where a changelog sentence ending
+        # "…and only one carried a measurement:" was charged with the three bullets after it.
+        _intro_indent = len(l) - len(l.lstrip())
+        _intro_is_item = bool(re.match(r"^\s*([-*]|\d+\.) ", l))
+        while j < len(lines):
+            nl = lines[j]
+            # a list belonging to a different section is not this sentence's count —
+            # stop at the next heading (any level) or horizontal rule, whichever comes first.
+            if re.match(r"^#{1,6}\s", nl) or re.match(r"^ {0,3}(-{3,}|\*{3,}|_{3,})\s*$", nl):
+                break
+            if re.match(r"^\s*([-*]|\d+\.) ", nl):
+                _d = len(nl) - len(nl.lstrip())
+                if _d < _intro_indent or (_intro_is_item and _d <= _intro_indent):
+                    break
+                got += 1
+            elif nl.strip() and not nl.startswith("  ") and got:
+                break
+            j += 1
+        if got and got != want:
+            warn(f"{f}:{i} says {m.group(1)} {m.group(2)} but {got} follow")
+
+    # e · the same long sentence twice in one file is a copy-paste that will drift apart.
+    seen = {}
+    for s in re.split(r"(?<=[.!?])\s+", body):
+        n = " ".join(s.split())
+        if len(n) > 110:
+            if n in seen:
+                warn(f"{f} repeats a sentence verbatim: “{n[:60]}…”")
+            seen[n] = 1
+
+# f · mermaid blocks must at least be structurally closed.
+for f in DOCS:
+    for n, blk in enumerate(re.findall(r"```mermaid\n(.*?)```", open(f, encoding="utf-8").read(), re.S), 1):
+        for open_c, close_c in "[]", "{}", "()":
+            if blk.count(open_c) != blk.count(close_c):
+                fail(f"{f}: mermaid diagram {n} has unbalanced {open_c}{close_c}")
+        if blk.count("subgraph") != len(re.findall(r"^\s*end\s*$", blk, re.M)):
+            fail(f"{f}: mermaid diagram {n} has a subgraph without its end")
+
+# f2 · every commands/*.md must have a row in COMMANDS.md. The coherence checks in
+# preflight all iterate table → file, so a command missing from the table is invisible
+# to every one of them at once. Commands are namespaced — `/team-ops:<name>` — because
+# plugin commands always are; the bare form was retired with the alias hook.
+try:
+    table = open("COMMANDS.md", encoding="utf-8").read()
+    for path in sorted(glob.glob("commands/*.md")):
+        name = os.path.basename(path)[:-3]
+        if not re.search(rf"/team-ops:{re.escape(name)}[`\s(\\|]", table):
+            warn(f"commands/{name}.md has no row in COMMANDS.md — /help will never list it")
+except OSError:
+    pass
+
+# f3 · /help must derive its command list from COMMANDS.md, not carry a frozen copy that
+# drifts. A help file that names commands without pointing at the table is the stale-list
+# failure the reverse-command check can't see.
+try:
+    h = open("commands/help.md", encoding="utf-8").read()
+    if "COMMANDS.md" not in h:
+        warn("commands/help.md should read the command surface from COMMANDS.md, "
+             "not list commands itself — a frozen list is a stale list")
+except OSError:
+    pass
+
+# g · every template the stand-up skeleton declares must exist. Read from the table's own
+# Template column, not from the prose around it: the previous regex stopped at the first blank
+# line and so saw one path out of nineteen, passing green on almost nothing checked. Hence the
+# empty-table guard below — a check that silently reads nothing is worse than no check.
+DECLARED = set()
+try:
+    boot = open("BOOTSTRAP.md", encoding="utf-8").read()
+    rows = re.findall(r"^\s*\|\s*`(_ops/[^`]+)`\s*\|[^|]*\|[^|]*\|\s*([^|]*?)\s*\|", boot, re.M)
+    if not rows:
+        fail("BOOTSTRAP: the repo-layout table has no `_ops/…` rows — the template guard is blind")
+    for path, tmpl in rows:
+        name = tmpl.split()[0] if tmpl.strip() else ""
+        if not name or name.startswith("—"):
+            continue  # the row declares no template, deliberately
+        DECLARED.add(name)
+        if not os.path.exists(f"templates/{name}-template.md"):
+            fail(f"BOOTSTRAP: {path} declares template '{name}' — templates/{name}-template.md is missing")
+except OSError:
+    pass
+
+# i · a file nothing points at is a file nobody opens. Links were checked forwards only, so a
+# store could sit in the repo with every link inside it valid and no door into it — worse than
+# a dangling link, because the chain reads as intact from both ends while nothing traverses it.
+# Reachable = named (by path or filename) in some other tracked file, or declared in the
+# skeleton table above. The exemptions are the paths something *outside* this repo reaches by
+# convention; each says who reaches it, so an obsolete exemption is legible rather than silent.
+# k · a shipped PreToolUse hook must refuse in a form that actually refuses. The rule, the
+# measured matrix and the reason live in PLAYBOOKS -> "A gate is not enforced until you have
+# watched it refuse"; this only holds our own hooks to it. Shell hooks are scanned too — a
+# `.sh` emitting the flat shape is exactly as ignored as a `.py` doing it.
+try:
+    _cfg = json.load(open("hooks/hooks.json", encoding="utf-8")).get("hooks", {})
+    _pre = " ".join(json.dumps(m) for m in _cfg.get("PreToolUse", []))
+    for _h in sorted(glob.glob("hooks/*.py") + glob.glob("hooks/*.sh")):
+        _stem = os.path.splitext(os.path.basename(_h))[0]
+        if _stem not in _pre:
+            continue
+        _b = open(_h, encoding="utf-8").read()
+        # A shim that only execs its sibling is judged by the sibling, already in this loop.
+        if re.search(r"exec\s+\S*python3?\s", _b) and "permissionDecision" not in _b:
+            continue
+        _refuses = "exit(2)" in _b or re.search(r"^\s*exit\s+2\s*$", _b, re.M)
+        _nested = "hookSpecificOutput" in _b and "permissionDecision" in _b
+        _flat = "permissionDecision" in _b and "hookSpecificOutput" not in _b
+        if _flat:
+            fail(f"{_h} denies with a FLAT permissionDecision, which refuses on neither path "
+                 f"(measured 2026-08-08) — use exit 2, or nest it under hookSpecificOutput")
+        elif not (_refuses or _nested):
+            warn(f"{_h} is registered on PreToolUse and never refuses — if it is a gate it "
+                 f"holds nothing; if it only reports, move it to PostToolUse")
+except (OSError, ValueError, KeyError):
+    pass
+
+CONVENTION = {
+    "commands/": "the plugin loads the directory; check f2 owns the COMMANDS.md row",
+    "evals/runs/": "release records, reached by version in preflight 5j",
+    # A run record cites its evidence as a range — `evals/transcripts/24-run{1..5}` — so no
+    # single transcript is ever named, and checking them one by one buried every real finding
+    # under forty-five warnings. The directory is reached; its contents are a set, not a list.
+    "evals/transcripts/": "run evidence, cited as a range by the run record",
+    "evals/fixtures/": "the situation a scenario is run against, reached by scenario id",
+    ".github/workflows/": "run by GitHub, by path",
+    ".claude-plugin/": "read by the plugin loader, by name",
+    "scripts/tests/": "collected by the test runner",
+    "assets/": "used by the docs site, the social preview and the plugin listing — none in this repo",
+    ".gitignore": "read by git",
+}
+try:
+    tracked = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True)
+    paths = [p for p in tracked.stdout.split("\n") if p]
+    # CHANGELOG is history, not a pointer: a file whose only mention is its own release note is
+    # orphaned in the live documentation, which is exactly the state we are looking for.
+    corpus = {}
+    for p in paths:
+        if p == "CHANGELOG.md" or p.endswith((".png", ".jpg", ".ico")):
+            continue
+        try:
+            corpus[p] = open(p, encoding="utf-8", errors="ignore").read()
+        except OSError:
+            pass
+    for p in paths:
+        if any(p == k or p.startswith(k) for k in CONVENTION):
+            continue
+        base = os.path.basename(p)
+        if base.endswith("-template.md") and base[:-len("-template.md")] in DECLARED:
+            continue  # declared in the skeleton table, which check g holds to its word
+        # Match on a name boundary, or a guard reports reachability it never established:
+        # `SKILL-SCAFFOLD.md` ends with the name `OLD.md`. A leading path segment is fine —
+        # A leading path segment does not break the match: `templates/X.md` still names X.
+        named = re.compile(r"(?<![\w-])(?:%s|%s)" % (re.escape(p), re.escape(base)))
+        if not any(named.search(t) for q, t in corpus.items() if q != p):
+            warn(f"{p} is reachable from nothing — no other file names it, and it is not "
+                 f"one of the convention-reached paths")
+except (OSError, subprocess.CalledProcessError):
+    pass
+
+# h · every `multica <group> <sub>` the docs promise must exist in the installed CLI.
+# **Except a group the docs are burying.** When the platform removes a command, the honest act is
+# a note saying so where a reader who wrote it into a runbook will look — and that note has to
+# name the command, which made this check refuse the very repair it was asking for (measured
+# 2026-08-23, on `plugin`: arrived 0.4.26, gone by 0.4.32, and the obituary tripped the gate
+# twice). The exemption is a REGISTRY, not a vocabulary: `<!-- cli-removed: <group> <date> -->`
+# in REFERENCE, one line per group, dated. A keyword list would have let any sentence containing
+# "removed" through — the defect §4e in the company guard was cured of, and this file is not
+# entitled to repeat it. Adding a line to the registry is a deliberate act with a date on it.
+if shutil.which("multica"):
+    try:
+        _ref = open("REFERENCE.md", encoding="utf-8", errors="ignore").read()
+    except OSError:
+        _ref = ""
+    # **The marker must be a marker, not a mention of one.** A regex over raw bytes accepted the
+    # registry's own documentation as an exemption: a §10 paragraph explaining the format with a
+    # real group name in it, the same thing quoted in inline code, and a marker parked inside a
+    # `<!-- DRAFT, do not apply: … -->` wrapper all buried a live command. Measured 2026-08-23 by
+    # an adversarial lens, which is the right place to have found it — the exemption is the one
+    # part of this check that says *stop looking*. So: alone on its line, outside every fence, and
+    # carrying a date that is a real calendar day rather than four digits and some punctuation.
+    _lines, _fence, RETIRED = _ref.split("\n"), False, set()
+    for _ln in _lines:
+        if _ln.lstrip().startswith("```") or _ln.lstrip().startswith("~~~"):
+            _fence = not _fence
+            continue
+        if _fence:
+            continue
+        _m = re.match(r"^\s*<!--\s*cli-removed:\s*([a-z][a-z-]+)\s+(\d{4}-\d{2}-\d{2})\s*-->\s*$", _ln)
+        if not _m:
+            # **A near-miss is louder than silence.** A line that opens `<!-- cli-removed:` and
+            # does not parse was simply skipped, so a reader who pasted the message's template
+            # verbatim — placeholder and all — saw the identical refusal next run with nothing
+            # saying their line had been rejected. Measured 2026-08-23 by a cold-read lens.
+            if _ln.lstrip().startswith("<!--") and "cli-removed" in _ln:
+                warn(f"a line in REFERENCE looks like a cli-removed marker and does not parse: "
+                     f"{_ln.strip()[:90]} — it must be alone on its line, outside any fence, as "
+                     f"`<!-- cli-removed: <group> YYYY-MM-DD -->` with a real calendar date. As "
+                     f"written it exempts nothing")
+            continue
+        try:
+            datetime.date.fromisoformat(_m.group(2))
+        except ValueError:
+            fail(f"the cli-removed line for `{_m.group(1)}` carries `{_m.group(2)}`, which is not a "
+                 f"calendar date — a burial with no real date is not a record of when")
+            continue
+        RETIRED.add(_m.group(1))
+    claimed = set()
+    for f in DOCS + sorted(glob.glob("scripts/*")):
+        try:
+            txt = open(f, encoding="utf-8", errors="ignore").read()
+        except OSError:
+            continue
+        for g, sub in re.findall(r"multica\s+([a-z][a-z-]+)\s+([a-z][a-z-]+)", txt):
+            claimed.add((g, sub))
+    groups = {}
+    for g, sub in sorted(claimed):
+        if g not in groups:
+            r = subprocess.run(["multica", g, "--help"], capture_output=True, text=True)
+            groups[g] = r.stdout if r.returncode == 0 else None
+        h = groups[g]
+        if h is None:
+            if g in RETIRED:
+                continue          # named in the removal registry, with a date — a burial, not a promise
+            # **Two things produce this, and only one of them is a removal.** The check fires
+            # whenever `multica <group> --help` exits non-zero — which is equally what happens
+            # when the CLI installed HERE is older than the docs. The message used to offer
+            # burial as the single remedy, so a reader on a stale CLI would follow it and
+            # permanently document a live command as gone. Named 2026-08-23 by a cold-read lens.
+            _lv = subprocess.run(["multica", "--version"], capture_output=True, text=True).stdout
+            _lv = (re.search(r"\d+\.\d+\.\d+", _lv or "") or [None])
+            _lv = _lv.group(0) if hasattr(_lv, "group") else "unknown"
+            # The marker is printed as a LITERAL you can paste, with the date filled in from
+            # today, and the instruction to change it sits outside the backticks. The first
+            # version put prose inside them — `<the date you verified it, YYYY-MM-DD>` — which the
+            # parser above does not match, so a reader who pasted exactly what they were shown got
+            # the identical refusal on the next run with nothing saying their line was rejected.
+            # That is the defect this whole message was rewritten to stop. Named 2026-08-23.
+            _today = datetime.date.today().isoformat()
+            fail(f"docs reference `multica {g}` and the CLI on this machine (v{_lv}) has no such "
+                 f"group. **Two different things cause this, so check which before writing "
+                 f"anything down.**\n"
+                 f"      · Your CLI may be older than the docs. REFERENCE §10 carries the version "
+                 f"they were checked against — if v{_lv} is behind it, run `multica update` (or "
+                 f"upgrade however you installed it) and run this again. The group is probably "
+                 f"alive and this is your install talking.\n"
+                 f"      · If you cannot upgrade right now, this check will keep refusing, and "
+                 f"that is correct — the docs and the CLI here disagree. Commit with your "
+                 f"repository's own bypass, or upgrade first; do NOT bury a command to get past "
+                 f"it.\n"
+                 f"      · If the platform really removed `{g}`, bury it. Paste this line into "
+                 f"REFERENCE.md, on a line of its own, outside any fence, and change the date to "
+                 f"the day you verified the removal:\n"
+                 f"        <!-- cli-removed: {g} {_today} -->\n"
+                 f"      then say in §10 what replaced it, so a reader with `multica {g}` in a "
+                 f"runbook finds out why it stopped working")
+        elif not re.search(rf"^\s+{re.escape(sub)}:", h, re.M) and not sub.startswith("-"):
+            if not re.search(rf"--{re.escape(sub)}\b", h):
+                warn(f"docs reference `multica {g} {sub}` — not in that group's help")
+
+print("\n".join(out))

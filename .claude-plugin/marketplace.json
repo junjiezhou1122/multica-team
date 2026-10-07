@@ -12,6 +12,12 @@
       "source": "./",
       "description": "Shared memory workflows for Multica teams.",
       "version": "0.1.0"
+    },
+    {
+      "name": "team-ops",
+      "source": "./plugins/team-ops",
+      "description": "Company operations and on-demand company discovery, maintained by Multica Team.",
+      "version": "0.1.0"
     }
   ]
 }

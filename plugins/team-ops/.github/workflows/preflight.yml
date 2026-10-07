@@ -1,0 +1,90 @@
+# The same gates the release ritual runs, enforced on every push and PR.
+#
+# **On macOS on purpose.** The ritual is run from the maintainer's own machine (darwin), and a
+# badge that goes green on a platform nobody releases from is decoration. Next door the same
+# workflow sat red for four releases because ubuntu's GNU sed refuses the BSD `-i ''` the
+# suites use — nobody looked, because nobody expected the badge to mean anything. It means
+# something here: it is the gate suite, not a subset of it.
+name: preflight
+on:
+  push:
+  pull_request:
+  workflow_dispatch: {}
+# This job only reads the tree. Without this block the job inherits the repository
+# default, which on an older repo is write-all — a token far stronger than the work.
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: macos-latest
+    steps:
+      # Pinned to a commit, not a tag: a tag is mutable, so `@v4` means "whatever that
+      # tag points at the day CI runs" — the supply-chain hole every scanner flags.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: {fetch-depth: 0}   # check 5j compares against the last release tag
+      - name: preflight
+        run: bash scripts/preflight.sh
+      # A hook that cannot be wrong is decoration, and this one only ever *reports* — so its
+      # whole value is being right about when it speaks. Each rule is shown speaking on a
+      # mutant and silent on its honest twin.
+      - name: hook mutation suite
+        run: bash scripts/test-migration-hook.sh
+      # A migration is only trustworthy if what it REFUSES to touch is proven: the craft's own
+      # files staying put, a collision named instead of overwritten, a second run doing nothing.
+      - name: layout migration suite
+        run: bash scripts/test-migrate-layout.sh
+      - name: map-blocks suite
+        run: bash scripts/test-map-blocks.sh
+      - name: outward-gate suite
+        run: bash scripts/test-outward-gate.sh
+      - name: the outward gate against bash itself — stubs only, no network
+        run: bash scripts/test-gate-vs-bash.sh
+      - name: rule-home suite
+        run: bash scripts/test-rule-home.sh
+      - name: dispatch-nudge suite
+        run: bash scripts/test-dispatch-nudge.sh
+      - name: the preflight's own checks — each mutant denied, each twin passing
+        run: bash scripts/test-preflight-checks.sh
+
+      - name: the company guard — the file that ships into other people's repos
+        run: bash scripts/test-company-guard.sh
+      - name: the company guard's mise.toml section — every entry a row, every row an entry
+        run: bash scripts/test-native-register.sh
+      - name: the company guard's recheck — a new tension reaches the findings resting on it
+        run: bash scripts/test-recheck-trigger.sh
+      - name: the dependency report — each update sorted by what it asks, and the why of each
+        run: bash scripts/test-deps-report.sh
+      - name: names become links — and never where they must not
+        run: bash scripts/test-link-names.sh
+      - name: a project's mentions become links — never its declarations
+        run: bash scripts/test-link-ids.sh
+      - name: every project on the shelf carries a link — and the shapes it must pass
+        run: bash scripts/test-check-shelf-links.sh
+      - name: an entry's Trio line against what the release added
+        run: bash scripts/test-check-trio.sh
+
+      # `find-installs.sh` decides whether an install's documented update route can actually be
+      # walked, and it shipped with no test — under a commit titled "a route nobody verifies is a
+      # route nobody has". A cold-read lens named the irony on 2026-08-23. Its check was wrong in
+      # the direction that costs most: it promised a refusal on a condition that does not cause
+      # one, then prescribed a reset, which discards work.
+      - name: the install inventory's route check
+        run: bash scripts/test-find-installs.sh
+
+      - name: release notes match their entries
+        run: bash scripts/test-check-releases.sh
+      - name: reads-against — the register's disagreements are symmetric
+        run: bash scripts/test-verify-reads.sh
+      # verify.py was run by NOTHING — not a workflow, not a suite, not preflight — so the three
+      # text checks added on 2026-08-15 (prose-only membership, the staleness note's own count,
+      # core/companion overlap) could not fail anywhere but a developer's terminal. Measured that
+      # day: deleting all three left the whole gate battery green. It warns rather than fails when
+      # the multica CLI is absent, which is the CI case, so the text checks still bite.
+      - name: verify — the claims that do not need the CLI
+        run: python3 scripts/verify.py
+      # `check-structure.py` is a gate this repo has always had and CI has never run — found by
+      # widening the coverage check from "every suite" to "every gate", 2026-08-16.
+      - name: structure — the docs are well-formed
+        run: python3 scripts/check-structure.py
+      - name: issues.py helper tests
+        run: python3 scripts/tests/test_issues_helpers.py

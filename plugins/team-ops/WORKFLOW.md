@@ -1,0 +1,239 @@
+# Workflow diagrams
+
+Mermaid renders on GitHub, in Obsidian, and on the docs site.
+
+## Contents
+
+- [From first message to a working company](#from-first-message-to-a-working-company)
+- [The four routes, side by side](#the-four-routes-side-by-side)
+- [Two seats of Team Advisor](#two-seats-of-mops)
+- [One feature through the conveyor](#one-feature-through-the-conveyor)
+- [Escalation & control](#escalation-control)
+- [Session limits — detect and recover](#session-limits-detect-and-recover)
+- [Getting current — what /upgrade actually walks](#getting-current-what-upgrade-actually-walks)
+- [Something went wrong — whose defect is it?](#something-went-wrong-whose-defect-is-it)
+- [The skill lifecycle — gates, not ceremony](#the-skill-lifecycle-gates-not-ceremony)
+- [A catch climbs, and a contradiction stops](#a-catch-climbs-and-a-contradiction-stops)
+
+## From first message to a working company
+
+```mermaid
+flowchart TD
+    U["Any first message —<br/>even a bare /team-ops:mops or 'hi'"] --> DZ["Day zero: installed · current ·<br/>signed in · workspace · daemon · runtimes<br/><i>one ladder with its fixes, not six prompts</i>"]
+    DZ --> Q{"Three questions:<br/>what exists · what you want ·<br/>who runs the work"}
+    U -->|"just a question,<br/>nothing to build"| CONSULT["/team-ops:consult — advise,<br/>zero footprint · no machinery<br/>unless the answer leads there"]
+    CONSULT -.->|"'let's build it'<br/>seeds a project"| Q
+    Q -->|"nothing, want a team"| SHAPE
+    Q -->|"a workspace already"| JOIN["/team-ops:join — audit, then fix<br/>in approved batches"]
+    Q -->|"a backlog elsewhere"| IMP["/team-ops:import — mapping shown first,<br/>issues created unassigned"]
+    Q -->|"one job, no team"| QJ["Quick job: 3 questions,<br/>1–2 agents, build → review"]
+    SHAPE["Shape the work:<br/>what's hard · what it's made of ·<br/>rough size → <b>team proposed with reasons</b>"] --> INT["Interview in waves —<br/>control question second"]
+    INT --> STAND["Stand up: conductor → guide +<br/>find-skills → roles → docs skeleton<br/>+ branch protection + docs guard"]
+    IMP --> CREW
+    Q -->|"a list of tasks, you decide order"| CREW["Crew mode: executors + gates,<br/><b>no conductor</b> — owner is the PM"]
+    CREW --> RUN["Work"]
+    STAND --> RUN
+    QJ --> RUN
+    JOIN --> RUN
+```
+
+> Nobody is asked to choose a command. Crew mode is the **default offer after `/team-ops:import`
+> when no conductor is standing** — someone who just moved their backlog has already decided
+> what the work is; a workspace that already has a conductor keeps it. Adding a conductor
+> later is an upgrade, not a redo.
+
+## The four routes, side by side
+
+```mermaid
+flowchart LR
+    subgraph INIT["/team-ops:init — a company"]
+        I1["shaping → interview"] --> I2["conductor + squads"] --> I3["roadmap · ICE · discovery"]
+    end
+    subgraph CREW["/team-ops:mops crew — a crew"]
+        C1["executors + gates"] --> C2["owner assigns"] --> C3["owner also holds:<br/>accept · skill screening ·<br/>dates · 3rd-round"]
+    end
+    subgraph QJ["quick job — the whole thing"]
+        J1["1–2 agents · build → review · done"]
+        J2["<i>and deliberately none of the machinery:<br/>no docs skeleton, no ledger, no modules</i>"]
+    end
+    subgraph JOIN["/team-ops:join — inherit"]
+        N1["audit first"] --> N2["interview delta"] --> N3["fix in approved batches"]
+    end
+```
+
+## Two seats of Team Advisor
+
+```mermaid
+flowchart TD
+    OWNER["Owner"]
+    OWNER -->|"build · heavy ops<br/>instant · own quota"| CLI["Team Advisor in CLI<br/>shell · git · deploy · full CLI"]
+    OWNER -->|"@Team Advisor: status · advice<br/>escalation · async"| MUL["Team Advisor in Multica<br/>resident agent · shared limit<br/>chat shows it only that chat —<br/><b>attach multica-cli to reach the board</b>"]
+    CLI -->|writes decisions| STATE["Written state<br/>repo + issue comments<br/>= source of truth"]
+    MUL -->|reads + writes| STATE
+    STATE -.->|kickoff handoff| MUL
+```
+
+## One feature through the conveyor
+
+```mermaid
+flowchart TD
+    IDEA["Idea"] --> DISC["Discovery:<br/>AS IS to TO BE · audience<br/>competitors · risks · metrics"]
+    DISC --> SPEC["Spec in repo<br/>approved by owner"]
+    SPEC --> DECOMP["Conductor: staged sub-issues"]
+    DECOMP --> S1["Stage 1 · Design<br/>(when UI)"]
+    S1 --> S2["Stage 2 · Build<br/>squad leader routes,<br/>executors commit"]
+    S2 --> S3{"Stage 3 · Review<br/>parallel gates"}
+    S3 --> QA["QA gate"]
+    S3 --> DQA["Design QA gate"]
+    S3 --> SEC["Security gate"]
+    QA & DQA & SEC --> ACC["Stage 4 · Accept<br/>merge · archive"]
+    ACC --> SHIP["Ship<br/>deploy · release notes · tag<br/>+ every derived surface regenerated<br/><i>from the tagged ref</i>"]
+    SHIP --> MEAS["Measure<br/>vs success metrics"]
+    MEAS --> LEARN["Learn<br/>→ ROADMAP.md"]
+    LEARN -->|non-stop mode| NEXT["Next feature<br/>from ROADMAP.md"]
+    S3 -->|request changes| S2
+    S3 -->|same point, 3rd round| CND["Conductor settles<br/>what 'done' means"]
+    CND --> S2
+```
+
+> A stage is a **barrier, not a queue**: everything genuinely independent goes on the *same*
+> stage and runs concurrently — the numbers order dependencies, not tasks. And width is only
+> real on a `github_repo` project; a `local_directory` serializes everything regardless.
+
+## Escalation & control
+
+```mermaid
+flowchart BT
+    EXEC["Executor agent"] --> LEAD["Squad leader"]
+    LEAD --> PM["Conductor (PM)"]
+    PM --> TEAM_ADVISOR["Team Advisor"]
+    TEAM_ADVISOR --> OWNER["Owner<br/><i>the issue is set <b>blocked</b> here —<br/>waiting work must not look alive</i>"]
+    EXEC -.->|"destructive only:<br/>delete · publish · spend"| OWNER
+```
+
+## Session limits — detect and recover
+
+```mermaid
+flowchart TD
+    RUN["Run fails: <b>agent_error</b><br/><i>not auto-retried — nothing<br/>brings it back on its own</i>"] --> CHK{"Comment says<br/>resets HH:MM?"}
+    CHK -->|yes| WHO{"Will anyone be<br/>at the console then?"}
+    WHO -->|yes| WAIT["Wait for reset<br/>(retry before it fails again)"]
+    WHO -->|"no — it resets at 07:00"| SCHED["Autopilot, cron pinned<br/><b>after</b> the reset<br/><i>one shot: an autopilot task<br/>never auto-retries</i>"]
+    SCHED --> DEL["Delete the trigger once fired<br/><i>a pinned date recurs annually</i>"]
+    WAIT --> RERUN["issue rerun<br/>= Retry task"]
+    SCHED --> RERUN
+    CHK -->|no| DIAG["Read run error<br/>+ daemon logs<br/>(~/.multica/daemon.log)"]
+    RERUN --> OK["Work resumes<br/>from repo state"]
+```
+
+## Getting current — what `/upgrade` actually walks
+
+```mermaid
+flowchart TD
+    GO["/team-ops:upgrade"] --> L1{"Is this skill's copy<br/>on your machine current?"}
+    L1 -->|"behind"| YOU["<b>Team Advisor runs the update</b> (it has the shell);<br/>you approve. <b>Content applies on next read</b>;<br/><i>restart only for new commands or hooks —<br/>those register at session start</i>"]
+    YOU --> L2
+    L1 -->|"current"| L2["Read the NEW version's CHANGELOG<br/>— it is the migration map"]
+    L2 --> BK["Back up both halves:<br/>skill files + agent config snapshot<br/>+ pre-upgrade SHA in UPGRADES.md"]
+    BK --> WS["Migrate the workspace:<br/>missing docs files · guide rules ·<br/>agent instructions · renamed commands"]
+    WS --> SK{"Imported skills:<br/>newer upstream?"}
+    SK -->|"yes"| SCR["<b>Re-screen</b> against the version<br/>you screened — diff the prose,<br/>not only the scripts"]
+    SCR --> SK
+    SK -->|"all current"| CLI{"CLI behind,<br/>locally or on a runtime?"}
+    CLI -->|"yes"| IDLE{"active_task_count = 0<br/>and nothing in_progress?"}
+    IDLE -->|"no"| WAIT["Say what's in flight.<br/>Wait for idle, or /team-ops:mops stop<br/>if the owner accepts it"]
+    WAIT --> IDLE
+    IDLE -->|"idle"| UPD["<b>Hand over the lines, don't run them</b>:<br/>multica update · runtime update &lt;id&gt; ·<br/>daemon restart<br/><i>self-hosted? the server is the owner's,<br/>and it goes first</i>"]
+    UPD --> FP
+    CLI -->|"current"| FP["Recompute the fingerprint —<br/><i>after</i> reconciling, never before"]
+    FP --> VER{"Behaviour still right?"}
+    VER -->|"no"| RB["Restore from the SHA —<br/>rollback is a normal outcome"]
+    VER -->|"yes"| DONE["Report what was adapted"]
+```
+
+> Two things this picture exists to prevent: **new bytes without a migration** (half the
+> company on one version, half on another), and **a CLI replaced under a running agent**,
+> which produces failures that look like the agent's fault.
+
+## Something went wrong — whose defect is it?
+
+**The person who just hit it should not have to classify it.** The door decides, from evidence.
+
+```mermaid
+flowchart TD
+    F["friction: something broke,<br/>or made the work harder"] --> Q{"does it stop you now?"}
+    Q -->|"yes"| B["the urgent lane —<br/>a blocking issue on your product"]
+    Q -->|"no"| W{"whose defect?<br/>decided here, not asked"}
+    W -->|"your workspace"| N["a field note in _ops/FIELD-NOTES.md<br/>one line, append-only"]
+    N --> S["swept at session end · /status ·<br/>before a release cut"]
+    S --> T{"seen twice?"}
+    T -->|"yes"| ISSUE["an issue, with BOTH occasions named in it"]
+    T -->|"no"| KEEP["stays a note"]
+    W -->|"this skill, or Multica"| P["assembled from evidence:<br/>version · flow · symptom · workspace state · files"]
+    P --> D["de-identified, a human reads the diff"]
+    D --> FILE["written WHOLE to a file<br/>OUTSIDE your repository · path said out loud"]
+    FILE --> R["routes named: an issue · the author · keep it"]
+    R --> YOU[["you post it — never us"]]
+```
+
+> **`/team-ops:report` is the door**, and a sentence reaches the same place. **The file is
+> written before anything is missing** — a field it cannot know is marked `unknown` and the offer
+> to fill it comes after, because a missing field is not a reason to withhold the artefact.
+> Measured: scenario 23 caught the first version stopping to ask, leaving the report as chat text.
+
+## The skill lifecycle — gates, not ceremony
+
+```mermaid
+flowchart TD
+    subgraph CREATE["Create"]
+        R1["Routine seen twice"] --> DRAFT["skill-creator draft"]
+        DRAFT --> TEST["Tested on a fresh agent<br/>that never saw the routine"]
+    end
+    subgraph IMPORT["Import"]
+        FIND["find-skills / search"] --> SCAN{"Screen:<br/>commands · exfiltration ·<br/>endpoints · grants · injection"}
+        SCAN -->|critical| REJ["Rejected<br/>→ _ops/DECISIONS.md"]
+        SCAN -->|broad access| HUM["Conductor + security reviewer<br/>never auto-approved"]
+        SCAN -->|clean| READ["Someone still reads<br/>what it instructs"]
+        HUM --> READ
+        READ --> TRIM["Trim to what this company needs"]
+    end
+    TEST --> OPT
+    TRIM --> OPT{"Optimize<br/>fail-closed"}
+    OPT -->|"commands · paths · numbers<br/>survive verbatim"| REV["Independent reviewer<br/>confirms meaning held"]
+    OPT -->|NOT_COMPRESSIBLE| ATT
+    REV --> ATT["Attach with provenance<br/>source · version · date · approver"]
+    ATT --> USE["In use"]
+    USE -->|"upgrade available"| SCAN
+    USE -->|"proved across 2 projects"| REL["Release:<br/>de-identify → owner's own repo<br/>owner-confirmed → re-import as external"]
+```
+
+> The loop back to **Screen** on upgrade is the point most setups miss: a version you vetted
+> is not the version you are about to install.
+
+## A catch climbs, and a contradiction stops
+
+Two rules that changed how this skill maintains itself, drawn because both are easy to nod at and
+hard to follow.
+
+```mermaid
+flowchart LR
+  I([something breaks]) --> N["**noticed**<br/>a dated line in<br/>FIELD-NOTES"]
+  N -->|"it happens again"| C["**recurrent**<br/>a backlog item naming<br/>both occasions"]
+  C -->|"a week, spent<br/>doing other work"| D["**durable**<br/>a rule in the guide"]
+  D -->|"it moved a<br/>measured outcome"| L["**load-bearing**<br/>the always-loaded core"]
+  I ==>|"loses work · ships something wrong ·<br/>lets an untrusted string act"| X["repaired NOW —<br/>the ladder governs lessons,<br/>never repairs"]
+```
+
+```mermaid
+flowchart TB
+  Q[one question] --> R1[run 1 · answers A]
+  Q --> R2[run 2 · answers B]
+  R1 & R2 --> F{"they disagree"}
+  F -->|"stop at the SECOND<br/>disagreement"| E["escalate: **the question is unstable**<br/>— and what differed between the askings"]
+  F -.->|"rerun until one<br/>agrees with you"| S(("sampling until the answer<br/>is convenient"))
+```
+
+**Three attempts bound failure; the second diagram bounds contradiction** — the worse state,
+because every run inside it looks like a success. Both are listed by name in the prose-only table
+with the exact reason neither is a gate today: `issue runs` records that a run *finished*, not what
+it *concluded*, and nothing compares a promotion's citation against its note's date.

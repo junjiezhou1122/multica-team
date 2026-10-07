@@ -1,0 +1,11 @@
+# Discover a local company
+
+Read this only when Team Advisor is invoked. Company registrations are local configuration, not global instructions, knowledge, or authority.
+
+1. Respect an explicit request to create a new company or answer a general question without company context; skip default routing. For an existing-company request, use an explicit company entry/directory, registry key/name, or server/workspace identity before any default. An explicit unregistered target stays explicit; do not substitute a default.
+2. Read `~/.config/multica-ops/companies.json` if present. Expected shape is `schema_version: 1`, optional `default_company` key, and `companies` keyed by stable local identifier. Each company has `name`, `server_url`, full `workspace_id`, and absolute `entry_path`. Missing registry falls back to the normal Team Advisor front door. Malformed registry, conflicting identities, or unreadable selected entry stops company writes; report the fault instead of creating a replacement company.
+3. Without an explicit target, use the valid `default_company`. If no default and exactly one company exists, use it. Multiple companies without a default require a selection. An invalid declared default is an error, not permission to pick another company.
+4. Read the selected entry with the filesystem Read tool. Resolve relative operational paths from the entry's parent directory. Check that its company identity agrees with the registration. Follow its document indexes and applicable instructions before action. Before live Multica operations, verify server/workspace against platform state and pass explicit workspace selection on all calls. Do not modify CLI global defaults to route a task.
+5. Preserve the user's original intent. A registered company's entry may define link onboarding; an explicit explanation/analysis request still means explanation/analysis. Company-specific workflow and permissions come from the entry and authoritative company records, not from this registry. Do not start new work merely because a default exists.
+
+The registry is not automatically populated or published. Changes need the user's task authorization. Registering a company starts no agents, model sessions, captures, or schedules. Remote clients need their own accessible registrations and entries.
