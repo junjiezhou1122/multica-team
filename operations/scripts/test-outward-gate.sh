@@ -16,9 +16,12 @@ pass=0; fail=0
 # and the test read the hook as silent when the hook was fine. A test's own escaping is the
 # quietest place for a false green to hide.
 fire() {
-  local sid="$1" cmd="$2" err rc
-  err=$(SID="$sid" CMD="$cmd" TP="${TP:-}" python3 -c 'import json,os,sys; sys.stdout.write(json.dumps({"hook_event_name":"PreToolUse","tool_name":"Bash","session_id":os.environ["SID"],"transcript_path":os.environ.get("TP",""),"tool_input":{"command":os.environ["CMD"]}}))' \
+  local sid="$1" cmd="$2" err rc command_file
+  command_file=$(mktemp "$MOPS_GATE_DIR/command.XXXXXX")
+  printf '%s' "$cmd" > "$command_file"
+  err=$(SID="$sid" COMMAND_FILE="$command_file" TP="${TP:-}" python3 -c 'import json,os,sys; from pathlib import Path; sys.stdout.write(json.dumps({"hook_event_name":"PreToolUse","tool_name":"Bash","session_id":os.environ["SID"],"transcript_path":os.environ.get("TP",""),"tool_input":{"command":Path(os.environ["COMMAND_FILE"]).read_text()}}))' \
         | $H 2>&1 >/dev/null); rc=$?
+  rm -f "$command_file"
   echo "$rc|$err"
 }
 speaks() { # name session command
